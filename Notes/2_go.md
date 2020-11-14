@@ -244,3 +244,32 @@ type Image interface {
 ```
 ## Concurrency
 ### I. Goroutines
+```
+go f(x, y, z)
+```
+### II. Channels
+```
+ch <- v    // Send v to channel ch.
+v := <-ch  // Receive from ch, and
+           // assign value to v.
+```
+create channel
+```
+ch := make(chan int)
+```
+sends and receives block until the other side is ready. This allows goroutines to synchronize without explicit locks or condition variables.
+### III. Buffered Channels
+```
+ch := make(chan int, 100)
+```
+### IV. Range and Close
+1. The loop for i := range c receives values from the channel repeatedly until it is closed.
+2. `v, ok := <-ch`
+### V. Select
+A select blocks until one of its cases can run, then it executes that case. It chooses one at random if multiple are ready.
+### VI. sync.Mutex
+```
+mu sync.Mutex
+c.mu.Lock()
+c.mu.Unlock()
+```
