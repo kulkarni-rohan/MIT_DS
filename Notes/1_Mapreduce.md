@@ -91,3 +91,6 @@ master runs an internal HTTP server and exports a set of status pages for human 
 1. restricting the programming model makes it easy to parallelize and distribute computations and to make such computations fault-tolerant
 2. network bandwidth is a scarce resource
 3. redundant execution can be used to reduce the impact of slow machines, and to handle machine failures and data loss.
+## Note from Lecture:
+1. Google has stopped using MapReduce for a few years, before they stopped, the modern MR actually no longer tries to run map on the same machine as the data stored on.
+2. Modern Network is way more faster than 2004.
