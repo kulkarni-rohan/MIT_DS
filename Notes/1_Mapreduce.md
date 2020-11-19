@@ -17,6 +17,21 @@ purposes:
 map     (k1, v1)        ->  list(k2, v2)
 reduce  (k2, list(v2))  ->  list(v2)
 ```
+### IV. diagram (from lecture)
+```
+Input1 -> Map ->    a,1 b,1
+Input2 -> Map ->        b,1
+Input3 -> Map ->    a,1     c,1
+                    |   |   |
+                    |   |   -> Reduce -> c,1
+                    |   -----> Reduce -> b,2
+                    ---------> Reduce -> a,2
+MR calls Map() for each input file, produces set of k2,v2
+    "intermediate" data
+    each Map() call is a "task"
+MR gathers all intermediate v2's for a given k2, and passes each key + values to a Reduce call
+final output is set of <k2,v3> pairs from Reduce()s
+```
 ## Implementation
 Many different implementations of the MapReduce interface are possible. The right choice depends on the environment. For example, one implementation may suitable for a small shared-memory machine, another for a large NUMA multi-processor, and yet another for an even large collection of networked machines.
 ### I. Execution Overview
