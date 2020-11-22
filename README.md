@@ -1,7 +1,13 @@
 # MIT_DS
 
 ## Progress
-Not started yet
+✔Passed all tests: -\
+❌Partially passed: -\
+❓WIP: 1, 2, 3, 4
+
+## Environment
+OS: Ubuntu 18.04 on WSL2\
+Go version: 1.13.6
 
 ## Course Link
 https://pdos.csail.mit.edu/6.824/

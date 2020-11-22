@@ -1,0 +1,313 @@
+*** Starting wc test.
+2020/11/22 17:19:04 rpc.Register: method "AfterDeath" has 2 input parameters; needs exactly three
+2020/11/22 17:19:04 rpc.Register: method "Done" has 1 input parameters; needs exactly three
+2020/11/22 17:19:04 rpc.Register: method "Killer" has 1 input parameters; needs exactly three
+Worker: init with id 0
+Worker: init with id 1
+Worker: init with id 2
+Worker 0: assigned Map task ../pg-being_ernest.txt
+Worker 1: assigned Map task ../pg-dorian_gray.txt
+Worker 2: assigned Map task ../pg-frankenstein.txt
+Worker 0: finished Map
+Worker 2: finished Map
+Worker 1: finished Map
+Worker 0: assigned Map task ../pg-grimm.txt
+Worker 2: assigned Map task ../pg-huckleberry_finn.txt
+Worker 1: assigned Map task ../pg-metamorphosis.txt
+Worker 1: finished Map
+Worker 0: finished Map
+Worker 2: finished Map
+Worker 1: assigned Map task ../pg-sherlock_holmes.txt
+Worker 0: assigned Map task ../pg-tom_sawyer.txt
+Worker 0: finished Map
+Worker 1: finished Map
+Worker 2: assigned Reduce task 0
+Worker 2: finished Reduce
+Worker 0: assigned Reduce task 1
+Worker 0: finished Reduce
+Worker 1: assigned Reduce task 2
+Worker 1: finished Reduce
+Worker 2: assigned Reduce task 3
+Worker 2: finished Reduce
+Worker 0: assigned Reduce task 4
+Worker 0: finished Reduce
+Worker 1: assigned Reduce task 5
+Worker 1: finished Reduce
+Worker 2: assigned Reduce task 6
+Worker 2: finished Reduce
+Worker 0: assigned Reduce task 7
+Worker 0: finished Reduce
+Worker 1: assigned Reduce task 8
+Worker 1: finished Reduce
+Worker 2: assigned Reduce task 9
+Worker 2: finished Reduce
+2020/11/22 17:19:15 dialing:dial unix /var/tmp/824-mr-1000: connect: connection refused
+2020/11/22 17:19:15 dialing:dial unix /var/tmp/824-mr-1000: connect: connection refused
+2020/11/22 17:19:15 dialing:dial unix /var/tmp/824-mr-1000: connect: connection refused
+--- wc test: PASS
+*** Starting indexer test.
+2020/11/22 17:19:15 rpc.Register: method "AfterDeath" has 2 input parameters; needs exactly three
+2020/11/22 17:19:15 rpc.Register: method "Done" has 1 input parameters; needs exactly three
+2020/11/22 17:19:15 rpc.Register: method "Killer" has 1 input parameters; needs exactly three
+Worker: init with id 0
+Worker: init with id 1
+Worker 0: assigned Map task ../pg-being_ernest.txt
+Worker 1: assigned Map task ../pg-dorian_gray.txt
+Worker 0: finished Map
+Worker 1: finished Map
+Worker 0: assigned Map task ../pg-frankenstein.txt
+Worker 1: assigned Map task ../pg-grimm.txt
+Worker 0: finished Map
+Worker 1: finished Map
+Worker 0: assigned Map task ../pg-huckleberry_finn.txt
+Worker 1: assigned Map task ../pg-metamorphosis.txt
+Worker 1: finished Map
+Worker 0: finished Map
+Worker 1: assigned Map task ../pg-sherlock_holmes.txt
+Worker 0: assigned Map task ../pg-tom_sawyer.txt
+Worker 1: finished Map
+Worker 0: finished Map
+Worker 1: assigned Reduce task 0
+Worker 1: finished Reduce
+Worker 0: assigned Reduce task 1
+Worker 0: finished Reduce
+Worker 1: assigned Reduce task 2
+Worker 1: finished Reduce
+Worker 0: assigned Reduce task 3
+Worker 0: finished Reduce
+Worker 1: assigned Reduce task 4
+Worker 1: finished Reduce
+Worker 0: assigned Reduce task 5
+Worker 0: finished Reduce
+Worker 1: assigned Reduce task 6
+Worker 1: finished Reduce
+Worker 0: assigned Reduce task 7
+Worker 0: finished Reduce
+Worker 1: assigned Reduce task 8
+Worker 1: finished Reduce
+Worker 0: assigned Reduce task 9
+Worker 0: finished Reduce
+2020/11/22 17:19:26 dialing:dial unix /var/tmp/824-mr-1000: connect: connection refused
+2020/11/22 17:19:26 dialing:dial unix /var/tmp/824-mr-1000: connect: connection refused
+--- indexer test: PASS
+*** Starting map parallelism test.
+2020/11/22 17:19:26 rpc.Register: method "AfterDeath" has 2 input parameters; needs exactly three
+2020/11/22 17:19:26 rpc.Register: method "Done" has 1 input parameters; needs exactly three
+2020/11/22 17:19:26 rpc.Register: method "Killer" has 1 input parameters; needs exactly three
+Worker: init with id 0
+Worker: init with id 1
+Worker 0: assigned Map task ../pg-being_ernest.txt
+Worker 1: assigned Map task ../pg-dorian_gray.txt
+Worker 0: finished Map
+Worker 1: finished Map
+Worker 0: assigned Map task ../pg-frankenstein.txt
+Worker 1: assigned Map task ../pg-grimm.txt
+Worker 1: finished Map
+Worker 0: finished Map
+Worker 1: assigned Map task ../pg-huckleberry_finn.txt
+Worker 0: assigned Map task ../pg-metamorphosis.txt
+Worker 1: finished Map
+Worker 0: finished Map
+Worker 1: assigned Map task ../pg-sherlock_holmes.txt
+Worker 0: assigned Map task ../pg-tom_sawyer.txt
+Worker 1: finished Map
+Worker 0: finished Map
+Worker 1: assigned Reduce task 0
+Worker 0: assigned Reduce task 1
+Worker 1: finished Reduce
+Worker 0: finished Reduce
+Worker 1: assigned Reduce task 2
+Worker 0: assigned Reduce task 3
+Worker 1: finished Reduce
+Worker 0: finished Reduce
+Worker 1: assigned Reduce task 4
+Worker 0: assigned Reduce task 5
+Worker 1: finished Reduce
+Worker 0: finished Reduce
+Worker 1: assigned Reduce task 6
+Worker 0: assigned Reduce task 7
+Worker 1: finished Reduce
+Worker 0: finished Reduce
+Worker 1: assigned Reduce task 8
+Worker 0: assigned Reduce task 9
+Worker 1: finished Reduce
+Worker 0: finished Reduce
+2020/11/22 17:19:41 dialing:dial unix /var/tmp/824-mr-1000: connect: connection refused
+2020/11/22 17:19:41 dialing:dial unix /var/tmp/824-mr-1000: connect: connection refused
+--- map parallelism test: PASS
+*** Starting reduce parallelism test.
+2020/11/22 17:19:41 rpc.Register: method "AfterDeath" has 2 input parameters; needs exactly three
+2020/11/22 17:19:41 rpc.Register: method "Done" has 1 input parameters; needs exactly three
+2020/11/22 17:19:41 rpc.Register: method "Killer" has 1 input parameters; needs exactly three
+Worker: init with id 0
+Worker: init with id 1
+Worker 0: assigned Map task ../pg-being_ernest.txt
+Worker 1: assigned Map task ../pg-dorian_gray.txt
+Worker 0: finished Map
+Worker 1: finished Map
+Worker 1: assigned Map task ../pg-frankenstein.txt
+Worker 0: assigned Map task ../pg-grimm.txt
+Worker 0: finished Map
+Worker 1: finished Map
+Worker 0: assigned Map task ../pg-huckleberry_finn.txt
+Worker 1: assigned Map task ../pg-metamorphosis.txt
+Worker 1: finished Map
+Worker 0: finished Map
+Worker 1: assigned Map task ../pg-sherlock_holmes.txt
+Worker 0: assigned Map task ../pg-tom_sawyer.txt
+Worker 0: finished Map
+Worker 1: finished Map
+Worker 0: assigned Reduce task 0
+Worker 1: assigned Reduce task 1
+Worker 1: finished Reduce
+Worker 0: finished Reduce
+Worker 1: assigned Reduce task 2
+Worker 0: assigned Reduce task 3
+Worker 1: finished Reduce
+Worker 1: assigned Reduce task 4
+Worker 0: finished Reduce
+Worker 0: assigned Reduce task 5
+Worker 1: finished Reduce
+Worker 0: finished Reduce
+Worker 1: assigned Reduce task 6
+Worker 0: assigned Reduce task 7
+Worker 0: finished Reduce
+Worker 1: finished Reduce
+Worker 0: assigned Reduce task 8
+Worker 0: finished Reduce
+Worker 1: assigned Reduce task 9
+Worker 1: finished Reduce
+2020/11/22 17:19:58 dialing:dial unix /var/tmp/824-mr-1000: connect: connection refused
+2020/11/22 17:19:58 dialing:dial unix /var/tmp/824-mr-1000: connect: connection refused
+--- reduce parallelism test: PASS
+*** Starting crash test.
+2020/11/22 17:19:58 rpc.Register: method "AfterDeath" has 2 input parameters; needs exactly three
+2020/11/22 17:19:58 rpc.Register: method "Done" has 1 input parameters; needs exactly three
+2020/11/22 17:19:58 rpc.Register: method "Killer" has 1 input parameters; needs exactly three
+Worker: init with id 0
+Worker: init with id 1
+Worker: init with id 2
+Worker 2: assigned Map task ../pg-being_ernest.txt
+Worker 1: assigned Map task ../pg-dorian_gray.txt
+Worker 0: assigned Map task ../pg-frankenstein.txt
+Worker: init with id 3
+Worker 3: assigned Map task ../pg-grimm.txt
+Worker: init with id 4
+Worker 4: assigned Map task ../pg-huckleberry_finn.txt
+Worker: init with id 5
+Worker 5: assigned Map task ../pg-metamorphosis.txt
+Worker 2: finished Map
+Worker 0: finished Map
+Worker 2: assigned Map task ../pg-sherlock_holmes.txt
+Worker 2: finished Map
+Worker 0: assigned Map task ../pg-tom_sawyer.txt
+Worker: init with id 6
+Worker 4: finished Map
+Worker 5: finished Map
+Master: kill worker 1
+Master: kill worker 3
+Worker 2: assigned Map task ../pg-dorian_gray.txt
+Worker 2: finished Map
+Worker 5: assigned Map task ../pg-grimm.txt
+Worker: init with id 7
+Master: kill worker 0
+Worker 2: assigned Map task ../pg-frankenstein.txt
+Worker 7: assigned Map task ../pg-tom_sawyer.txt
+Worker: init with id 8
+Worker 2: finished Map
+Master: kill worker 5
+Master: kill worker 7
+Worker 8: assigned Map task ../pg-grimm.txt
+Worker 8: finished Map
+Worker 6: assigned Map task ../pg-metamorphosis.txt
+Worker 2: assigned Map task ../pg-tom_sawyer.txt
+Worker: init with id 9
+Master: kill worker 2
+Worker 8: assigned Map task ../pg-being_ernest.txt
+Worker 9: assigned Map task ../pg-dorian_gray.txt
+Worker 9: finished Map
+Worker 4: assigned Map task ../pg-frankenstein.txt
+Worker: init with id 10
+Worker 10: assigned Map task ../pg-sherlock_holmes.txt
+Worker 9: assigned Map task ../pg-tom_sawyer.txt
+Master: kill worker 6
+Worker: init with id 11
+Worker 11: assigned Map task ../pg-metamorphosis.txt
+Worker: init with id 12
+Worker 4: finished Map
+Worker: init with id 13
+Master: kill worker 8
+Worker 13: assigned Map task ../pg-being_ernest.txt
+Worker 12: assigned Map task ../pg-grimm.txt
+Worker: init with id 14
+Master: kill worker 9
+Master: kill worker 10
+Master: kill worker 11
+Worker 14: assigned Map task ../pg-dorian_gray.txt
+Worker 4: assigned Map task ../pg-metamorphosis.txt
+Worker: init with id 15
+Worker 15: assigned Map task ../pg-sherlock_holmes.txt
+Worker 15: finished Map
+Worker: init with id 16
+Worker 16: assigned Map task ../pg-tom_sawyer.txt
+Worker 16: finished Map
+Worker 12: finished Map
+Master: kill worker 13
+Worker 12: assigned Map task ../pg-being_ernest.txt
+Master: kill worker 4
+Master: kill worker 14
+Worker 15: assigned Map task ../pg-dorian_gray.txt
+Worker 16: assigned Map task ../pg-frankenstein.txt
+Worker 16: finished Map
+Worker: init with id 17
+Worker 17: assigned Map task ../pg-huckleberry_finn.txt
+Worker 17: finished Map
+Worker 16: assigned Map task ../pg-metamorphosis.txt
+Worker 16: finished Map
+Worker 12: finished Map
+Master: kill worker 15
+Worker 17: assigned Map task ../pg-dorian_gray.txt
+Worker 17: finished Map
+Worker 12: assigned Map task ../pg-sherlock_holmes.txt
+Worker 12: finished Map
+Worker 16: assigned Reduce task 0
+Worker 17: assigned Reduce task 1
+Worker 17: finished Reduce
+Worker 12: assigned Reduce task 2
+Worker 16: finished Reduce
+Worker 17: assigned Reduce task 3
+Worker 17: finished Reduce
+Worker 16: assigned Reduce task 4
+Worker 16: finished Reduce
+Worker 17: assigned Reduce task 5
+Worker 17: finished Reduce
+Worker 16: assigned Reduce task 6
+Worker 16: finished Reduce
+Worker 17: assigned Reduce task 7
+Worker 17: finished Reduce
+Worker 16: assigned Reduce task 8
+Worker 16: finished Reduce
+Worker 17: assigned Reduce task 9
+Worker: init with id 18
+Worker 12: finished Reduce
+Master: kill worker 17
+Worker 12: assigned Reduce task 1
+Worker 12: finished Reduce
+Worker 18: assigned Reduce task 3
+Worker 18: finished Reduce
+Worker 16: assigned Reduce task 5
+Worker 16: finished Reduce
+Worker 12: assigned Reduce task 7
+Worker 12: finished Reduce
+Worker 18: assigned Reduce task 9
+Worker: init with id 19
+Master: kill worker 18
+Worker 16: assigned Reduce task 3
+Worker 16: finished Reduce
+Worker 12: assigned Reduce task 9
+Worker 12: finished Reduce
+2020/11/22 17:21:18 dialing:dial unix /var/tmp/824-mr-1000: connect: connection refused
+2020/11/22 17:21:18 dialing:dial unix /var/tmp/824-mr-1000: connect: connection refused
+2020/11/22 17:21:18 dialing:dial unix /var/tmp/824-mr-1000: connect: connection refused
+--- crash test: PASS
+*** PASSED ALL TESTS
