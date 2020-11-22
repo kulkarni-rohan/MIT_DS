@@ -3,7 +3,7 @@
 ## Progress
 ✔Passed all tests: 1\
 ❌Partially passed: -\
-❓WIP: 2, 3, 4
+❓WIP: 2A, 2B, 2C, 3A, 3B, 4A, 4B
 
 ## Environment
 OS: Ubuntu 18.04 on WSL2\
