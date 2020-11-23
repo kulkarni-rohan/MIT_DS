@@ -64,3 +64,32 @@ GFS has a relaxed consistency model
 7. stale replicas are garbage. client clears this after a. timeout b. next open of the file
 8. GFS identifies failed chunkservers by regular handshakes and detects data corruption by checksumming
 #### B. Implications for Applications
+GFS accommodates the relaxed consistency model with a few techniques
+1. relying on appends rather than overwrites
+2. checkpointing
+3. writing self-validating, self-identifying records
+## System Interactions
+### I. Leases and Mutation Order
+1. one of the replicas is called `primary`, master grants lease to it
+2. lease defines mutation order
+3. initial timeout is 60s, can extend, sent together with heartbeat. 
+#### Steps
+1. client ask master for lease location
+2. master replis with primary and secondaries locations
+3. client push data to all the replicas (in any order)
+4. after all the replicas acknowledged, client sends a write request to the primary
+5. primary forwards the write request to all secondary replicas
+6. secondaries replies upon completion
+7. if unsuccessful, return to client, client retry
+### II. Data Flow
+1. data is pushed linearly
+2. reduce latency by pipelining the data transfer over TCP connections.
+### III. Atomic Record Appends
+1. if data too big -> pads it to maximum of current chunk then append, then return and ask client to retry in next chunk.
+2. GFS does not guarantee that all replicas are bytewise identical, it only guarantees that the data is written at least once as an atomic unit.
+3. record append is restricted to one fourth of the maximum chunk size to keep worst case fragmentation at an acceptable level
+### IV. Snapshot
+1. copy-on-write
+2. copy to the same replica. after copy action, master doesn't really copy, it increment the ref count of the chosen chunks and revokes the lease of corresponding chunks. Client can read, but if client want to write, it must ask for lease, at this time, master do the real copy of the chunk and decrement the ref count
+## Master Operation
+### I. Namespace Management and Locking
