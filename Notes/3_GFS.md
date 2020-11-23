@@ -93,3 +93,41 @@ GFS accommodates the relaxed consistency model with a few techniques
 2. copy to the same replica. after copy action, master doesn't really copy, it increment the ref count of the chosen chunks and revokes the lease of corresponding chunks. Client can read, but if client want to write, it must ask for lease, at this time, master do the real copy of the chunk and decrement the ref count
 ## Master Operation
 ### I. Namespace Management and Locking
+1. GFS has a lookup table mapping full pathnames to metadata instead of per-directory data structure
+2. allow concurrent writes in the same directory
+3. read-write lock objects are allocated lazily and deleted once they are not in use
+4. to prevent deadlock, they are first ordered by level in the namespace tree and lexicographically within the same level
+### II. Replica Placement
+spread replicas across racks to reduce the damage of network failure
+### III. Creation, Re-replication, Rebalancing
+#### A. where to create new replica
+1. below-average available disk space
+2. limit the number of recent creations on each chunkserver
+3. spread replicas across racks
+#### B. when to re-replicate
+1. replica corrupted
+2. disk disabled
+3. replication goal increased
+#### C. priority of replication candidates
+1. how far it is from goal
+2. live file over deleted files
+#### D. rebalance
+periodically choose replica and move to new place
+### IV. Garbage Collection
+#### A. Mechanism
+1. after delete, it changed to a hidden name. Remove after three days in regular scan. During this period, it can still be read
+2. metadata of orphaned chunks (not reachable) will be erased
+3. in heartbeat, each chunkserver reports a subset of the chunks it has, and the master replies with the identity of all chunks that are no longer present in the master's metadata. The chunkserver is free to delete these chunks
+#### B. Discussion
+##### i. Advantages
+1. simple and reliable
+2. merges storage reclaimation into regular background activities, can done in batch, also master is relatively free
+3. safety against accidental deletion
+##### ii. Disadvantages
+1. torage may be tight, client can send delete message again to delete instantaneously
+### V. Stale Replica Detection
+1. use `chunk version number`, it's updated upon granting a new lease on a chunk
+2. master and replicas all record the version number persistently
+3. when a replica becomes unavailable, chunk version number will not be advanced. Master detects that when the chunkserver restarts and reports its set of chunks and corresponding version numbers
+4. master removes stale replicas in regular garbage collection. Before that it considers stale replicas not to exist at all when it replies to client
+5. another safe guard, master replies client with the version number. So client and chunkserver can double check
