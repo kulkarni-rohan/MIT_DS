@@ -1,4 +1,4 @@
-# 2.Golang
+# Golang
 ## Go basics
 ### I. packages, variables and functions
 1. a name is exported if it begins with a capital letter
