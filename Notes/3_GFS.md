@@ -131,3 +131,30 @@ periodically choose replica and move to new place
 3. when a replica becomes unavailable, chunk version number will not be advanced. Master detects that when the chunkserver restarts and reports its set of chunks and corresponding version numbers
 4. master removes stale replicas in regular garbage collection. Before that it considers stale replicas not to exist at all when it replies to client
 5. another safe guard, master replies client with the version number. So client and chunkserver can double check
+## Fault Tolerance and Diagnosis
+### I. High Availability
+two stratagies to keep the high availability: fast recovery and replication
+#### A. Fast Recovery
+1. both master and chunkserver are designed to restore their state and start in seconds no matter how they terminated. 
+2. We do not distinguish between normal and abnormal termination 
+3. Servers are routinely shut down just by killing the process
+#### B. Chunk Replication
+Although replication has served us well, we are exploring other-forms of cross-server redundancy such as parity or erasure codes for our increasing read-only storage requirements
+#### C. Master Replication
+1. operation log and checkpoints are replicated on multiple machines
+2. a mutation is considered committed after log record has been flushed on both local disk and all master replicas.
+3. one master process remains in charge of all mutations as well as background activities.
+4. if disk failes, monitoring infrastructure outside GFS starts a new master process elsewhere with the replicated operation log and point the DNS record to it.
+5. client only use CNAME
+6. shadow master provide read-only access to the file system even when the primary master is down, it may lag the primary slightly, typically fractions of a second
+7. metadata may be stale within short windows, like directly contents or access control information.
+8. shadow master reads a replica of the growing operation log and applies the same sequence of changes to its data structures exactly as the primary does
+9. shadow master depends on the primary master only for replica location, updates resulting from the primary's decisions to create and delete replicas.
+### II. Data Integrity
+1. checksum when reads and writes
+2. checksums are stored in memory, and persistently kept on disk with logging.
+3. we must read and verify the first and last blocks of the range being overwritten, then perform the write and finally compute and record the new checksums. If we do not verify them, the new checksums may hide corruption that exisis in the regions not being overwritten
+4. chunkservers can scan and verify the contents of inactive chunks when idle.
+### III. Diagnostic Tools
+1. extensive and detailed diagnostic logging
+2. generate diagnostic logs that record many significant events (such as chunkservers going up and going down) and all RPC requests and replies.
