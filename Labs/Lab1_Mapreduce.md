@@ -6,5 +6,5 @@ Passed all tests
 2. code: worker.go
 3. code: rpc.go
 4. code: defs.go, I put constants here
-5. example output: lab
+5. debugging info: lab1_out.txt
 6. tool: clear.sh, I use it to clear tmp files, put it under main

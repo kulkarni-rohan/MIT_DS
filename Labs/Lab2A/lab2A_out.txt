@@ -1,0 +1,281 @@
+0: initialized
+1: initialized
+2: initialized
+Test (2A): initial election ...
+0: launched election in term 1
+2: received RequestVote from 0
+2: RequestVote from 0 succeeded
+1: received RequestVote from 0
+1: RequestVote from 0 succeeded
+0: finished election in term 1
+0: Became Leader
+0: heartbeats in term 1
+1: received AppendEntries from 0 in term 1
+1: AppendEntries from 0 succeeded
+2: received AppendEntries from 0 in term 1
+2: AppendEntries from 0 succeeded
+0: heartbeats in term 1
+2: received AppendEntries from 0 in term 1
+2: AppendEntries from 0 succeeded
+1: received AppendEntries from 0 in term 1
+1: AppendEntries from 0 succeeded
+0: heartbeats in term 1
+1: received AppendEntries from 0 in term 1
+1: AppendEntries from 0 succeeded
+2: received AppendEntries from 0 in term 1
+2: AppendEntries from 0 succeeded
+0: heartbeats in term 1
+1: received AppendEntries from 0 in term 1
+1: AppendEntries from 0 succeeded
+2: received AppendEntries from 0 in term 1
+2: AppendEntries from 0 succeeded
+0: heartbeats in term 1
+2: received AppendEntries from 0 in term 1
+2: AppendEntries from 0 succeeded
+1: received AppendEntries from 0 in term 1
+1: AppendEntries from 0 succeeded
+0: heartbeats in term 1
+1: received AppendEntries from 0 in term 1
+1: AppendEntries from 0 succeeded
+2: received AppendEntries from 0 in term 1
+2: AppendEntries from 0 succeeded
+0: heartbeats in term 1
+2: received AppendEntries from 0 in term 1
+2: AppendEntries from 0 succeeded
+1: received AppendEntries from 0 in term 1
+1: AppendEntries from 0 succeeded
+0: heartbeats in term 1
+2: received AppendEntries from 0 in term 1
+2: AppendEntries from 0 succeeded
+1: received AppendEntries from 0 in term 1
+1: AppendEntries from 0 succeeded
+0: heartbeats in term 1
+1: received AppendEntries from 0 in term 1
+1: AppendEntries from 0 succeeded
+2: received AppendEntries from 0 in term 1
+2: AppendEntries from 0 succeeded
+0: heartbeats in term 1
+1: received AppendEntries from 0 in term 1
+1: AppendEntries from 0 succeeded
+2: received AppendEntries from 0 in term 1
+2: AppendEntries from 0 succeeded
+0: heartbeats in term 1
+2: received AppendEntries from 0 in term 1
+2: AppendEntries from 0 succeeded
+1: received AppendEntries from 0 in term 1
+1: AppendEntries from 0 succeeded
+0: heartbeats in term 1
+2: received AppendEntries from 0 in term 1
+2: AppendEntries from 0 succeeded
+1: received AppendEntries from 0 in term 1
+1: AppendEntries from 0 succeeded
+0: heartbeats in term 1
+2: received AppendEntries from 0 in term 1
+1: received AppendEntries from 0 in term 1
+1: AppendEntries from 0 succeeded
+2: AppendEntries from 0 succeeded
+0: heartbeats in term 1
+2: received AppendEntries from 0 in term 1
+2: AppendEntries from 0 succeeded
+1: received AppendEntries from 0 in term 1
+1: AppendEntries from 0 succeeded
+0: heartbeats in term 1
+1: received AppendEntries from 0 in term 1
+1: AppendEntries from 0 succeeded
+2: received AppendEntries from 0 in term 1
+2: AppendEntries from 0 succeeded
+0: heartbeats in term 1
+2: received AppendEntries from 0 in term 1
+2: AppendEntries from 0 succeeded
+1: received AppendEntries from 0 in term 1
+1: AppendEntries from 0 succeeded
+0: heartbeats in term 1
+2: received AppendEntries from 0 in term 1
+1: received AppendEntries from 0 in term 1
+1: AppendEntries from 0 succeeded
+2: AppendEntries from 0 succeeded
+0: heartbeats in term 1
+2: received AppendEntries from 0 in term 1
+2: AppendEntries from 0 succeeded
+1: received AppendEntries from 0 in term 1
+1: AppendEntries from 0 succeeded
+0: heartbeats in term 1
+2: received AppendEntries from 0 in term 1
+2: AppendEntries from 0 succeeded
+1: received AppendEntries from 0 in term 1
+1: AppendEntries from 0 succeeded
+  ... Passed --   3.6  3   40    6140    0
+0: initialized
+1: initialized
+2: initialized
+Test (2A): election after network failure ...
+2: launched election in term 1
+1: received RequestVote from 2
+1: RequestVote from 2 succeeded
+0: received RequestVote from 2
+0: RequestVote from 2 succeeded
+2: finished election in term 1
+2: Became Leader
+2: heartbeats in term 1
+0: received AppendEntries from 2 in term 1
+1: received AppendEntries from 2 in term 1
+1: AppendEntries from 2 succeeded
+0: AppendEntries from 2 succeeded
+2: launched election in term 2
+2: finished election in term 2
+1: launched election in term 2
+2: heartbeats in term 1
+0: received AppendEntries from 2 in term 1
+0: AppendEntries from 2 succeeded
+1: received AppendEntries from 2 in term 1
+1: AppendEntries from 2 succeeded
+1: finished election in term 2
+2: heartbeats in term 1
+1: received AppendEntries from 2 in term 1
+1: AppendEntries from 2 succeeded
+0: received AppendEntries from 2 in term 1
+0: AppendEntries from 2 succeeded
+[SUCCESS] election
+2: heartbeats in term 1
+2: heartbeats in term 1
+2: heartbeats in term 1
+2: heartbeats in term 1
+2: launched election in term 3
+2: finished election in term 3
+2: heartbeats in term 1
+1: launched election in term 3
+1: finished election in term 3
+2: heartbeats in term 1
+0: launched election in term 2
+1: received RequestVote from 0
+1: RequestVote from 0 succeeded
+1: launched election in term 3
+0: received RequestVote from 1
+0: finished election in term 2
+0: Became Leader
+0: heartbeats in term 2
+1: received AppendEntries from 0 in term 2
+1: finished election in term 3
+1: AppendEntries from 0 failed
+2: heartbeats in term 1
+0: RequestVote from 1 succeeded
+2: heartbeats in term 1
+2: heartbeats in term 1
+2: launched election in term 4
+2: heartbeats in term 1
+2: finished election in term 4
+2: heartbeats in term 1
+1: launched election in term 4
+1: finished election in term 4
+2: heartbeats in term 1
+2: heartbeats in term 1
+1: launched election in term 4
+0: received RequestVote from 1
+0: RequestVote from 1 succeeded
+1: finished election in term 4
+1: Became Leader
+1: heartbeats in term 4
+0: received AppendEntries from 1 in term 4
+0: AppendEntries from 1 succeeded
+2: heartbeats in term 1
+[SUCCESS] disconnect leader
+1: heartbeats in term 4
+2: received AppendEntries from 1 in term 4
+2: AppendEntries from 1 succeeded
+0: received AppendEntries from 1 in term 4
+0: AppendEntries from 1 succeeded
+2: launched election in term 5
+1: heartbeats in term 4
+2: received AppendEntries from 1 in term 4
+2: AppendEntries from 1 succeeded
+0: received AppendEntries from 1 in term 4
+0: AppendEntries from 1 succeeded
+2: finished election in term 5
+1: heartbeats in term 4
+0: received AppendEntries from 1 in term 4
+0: AppendEntries from 1 succeeded
+2: received AppendEntries from 1 in term 4
+2: AppendEntries from 1 succeeded
+[SUCCESS] reconnect
+1: heartbeats in term 4
+1: launched election in term 5
+1: finished election in term 5
+1: heartbeats in term 4
+1: heartbeats in term 4
+1: heartbeats in term 4
+2: launched election in term 5
+2: finished election in term 5
+2: launched election in term 6
+1: heartbeats in term 4
+2: finished election in term 6
+1: heartbeats in term 4
+0: launched election in term 5
+0: finished election in term 5
+1: heartbeats in term 4
+1: launched election in term 6
+1: finished election in term 6
+1: heartbeats in term 4
+1: heartbeats in term 4
+2: launched election in term 6
+2: finished election in term 6
+1: heartbeats in term 4
+2: launched election in term 7
+2: finished election in term 7
+1: heartbeats in term 4
+1: heartbeats in term 4
+1: heartbeats in term 4
+0: launched election in term 6
+0: finished election in term 6
+2: launched election in term 7
+1: launched election in term 7
+1: heartbeats in term 4
+2: finished election in term 7
+[SUCCESS] all single
+1: finished election in term 7
+1: heartbeats in term 4
+1: heartbeats in term 4
+2: launched election in term 8
+2: finished election in term 8
+1: heartbeats in term 4
+1: heartbeats in term 4
+2: launched election in term 8
+0: received RequestVote from 2
+0: RequestVote from 2 succeeded
+2: finished election in term 8
+2: Became Leader
+2: heartbeats in term 8
+0: received AppendEntries from 2 in term 8
+0: AppendEntries from 2 succeeded
+1: heartbeats in term 4
+2: heartbeats in term 8
+0: received AppendEntries from 2 in term 8
+0: AppendEntries from 2 succeeded
+1: heartbeats in term 4
+1: launched election in term 8
+1: finished election in term 8
+2: heartbeats in term 8
+0: received AppendEntries from 2 in term 8
+0: AppendEntries from 2 succeeded
+1: heartbeats in term 4
+[SUCCESS] reconnect one
+2: heartbeats in term 8
+1: received AppendEntries from 2 in term 8
+1: AppendEntries from 2 succeeded
+0: received AppendEntries from 2 in term 8
+0: AppendEntries from 2 succeeded
+2: launched election in term 9
+2: finished election in term 9
+2: heartbeats in term 8
+1: received AppendEntries from 2 in term 8
+1: AppendEntries from 2 succeeded
+0: received AppendEntries from 2 in term 8
+0: AppendEntries from 2 succeeded
+2: heartbeats in term 8
+0: received AppendEntries from 2 in term 8
+0: AppendEntries from 2 succeeded
+1: received AppendEntries from 2 in term 8
+1: AppendEntries from 2 succeeded
+[SUCCESS] all reconnect
+  ... Passed --   7.3  3  118   12362    0
+PASS
+ok  	_/home/philoy/MIT_DS/6.824/src/raft	10.911s
