@@ -47,3 +47,15 @@ func main() {
 	print(a)
 }
 ```
+## Lecture 6
+Suppose we have the scenario shown in the Raft paper's Figure 7: a cluster of seven servers, with the log contents shown. The first server crashes (the one at the top of the figure), and cannot be contacted. A leader election ensues. For each of the servers marked (a), (d), and (f), could that server be elected? If yes, which servers would vote for it? If no, what specific Raft mechanism(s) would prevent it from being elected?
+```
+a: receive votes from a, b, c, can't be elected
+d: receive votes from a, b, d, can't be elected
+f: no votes, can't be elected
+```
+## Lecture 7
+Could a received InstallSnapshot RPC cause the state machine to go backwards in time? That is, could step 8 in Figure 13 cause the state machine to be reset so that it reflects fewer executed operations? If yes, explain how this could happen. If no, explain why it can't happen.
+```
+No. Only committed records will be installed. Because committed records never goes backwards, the snapshots won't go backwards either.
+```
