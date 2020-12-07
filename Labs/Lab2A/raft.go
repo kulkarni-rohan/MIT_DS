@@ -75,7 +75,6 @@ type Raft struct {
 	term	  int
 	state	  int
 	votedFor  int
-	timeout   int
 	cd 		  CountDown
 	// Look at the paper's Figure 2 for a description of what
 	// state a Raft server must maintain.
@@ -357,7 +356,7 @@ func (rf *Raft) setwakeup(cd *CountDown) {
 	cd.mu.Lock()
 	version := cd.version
 	cd.mu.Unlock()
-	time.Sleep(time.Duration(rf.timeout) * time.Millisecond)
+	time.Sleep(time.Duration(randgen()) * time.Millisecond)
 	cd.cond.L.Lock()
 	cd.mu.Lock()
 	if version == cd.version {
@@ -444,7 +443,6 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	rf.cd = CountDown{0,false,sync.Mutex{},sync.NewCond(&sync.Mutex{})}
 	rf.term = 0
 	rf.state = FOLLOWER
-	rf.timeout = randgen()
 	rf.votedFor = -1
 	go rf.election()
 

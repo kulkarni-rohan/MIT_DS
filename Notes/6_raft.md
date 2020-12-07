@@ -44,7 +44,7 @@ goal: ensure follower to execute same command in same order
 2. only log entries from the leader's current term are committed by counting replicas
 3. once an entry from the current term has been committed in this way, then all prior entries are committed indirectly because of the Log Matching Property.
 ### III. Safety Argument
-(this section proves part II measurements are correct)
+Because both commit and election will require agreement from majority of servers, they must overlap. This ensures part II measurements are correct.
 ## Follower and Candidate Crashes
 1. future RequestVote and AppendEntries send to it will fail. Raft handles this failures by retrying indefinitely.
 2. if server completes RPC but fails to respond, it's no harm because Raft RPCs are idempotent
