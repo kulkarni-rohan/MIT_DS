@@ -518,7 +518,7 @@ func (rf *Raft) agreement(idx int, command interface{}) bool {
 					return
 				}
 			}
-		}(peer)
+		} (peer)
 	}
 	time.Sleep(TIMEOUT * time.Millisecond)
 	if nAppended.val > len(rf.peers)/2 {

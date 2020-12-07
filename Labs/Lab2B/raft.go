@@ -17,27 +17,30 @@ package raft
 //   in the same server.
 //
 
-import "sync"
-import "sync/atomic"
-import "../labrpc"
-import "time"
-import "math/rand"
-import "fmt"
+import (
+	"fmt"
+	"math/rand"
+	"sync"
+	"sync/atomic"
+	"time"
+
+	"../labrpc"
+)
+
 // import "bytes"
 // import "../labgob"
 
-
 // status
 const (
-	LEADER = 0
+	LEADER    = 0
 	CANDIDATE = 1
-	FOLLOWER = 2
+	FOLLOWER  = 2
 )
 
 // heartbeat interval in milliseconds
 const (
-	HEARTBEAT_MIN = 200
-	HEARTBEAT_RANGE = 400
+	HEARTBEAT_MIN      = 200
+	HEARTBEAT_RANGE    = 400
 	HEARTBEAT_INTERVAL = 50
 )
 
@@ -45,11 +48,20 @@ const (
 const TIMEOUT = 30
 
 func max(a int, b int) int {
-	if a > b { return a } else { return b }
+	if a > b {
+		return a
+	} else {
+		return b
+	}
 }
 func min(a int, b int) int {
-	if a < b { return a } else { return b }
+	if a < b {
+		return a
+	} else {
+		return b
+	}
 }
+
 //
 // as each Raft peer becomes aware that successive log entries are
 // committed, the peer should send an ApplyMsg to the service (or
@@ -79,17 +91,17 @@ type Raft struct {
 
 	// Your data here 2A
 	// Persistent
-	term	  int
-	votedFor  int
-	log 	  []Entry
+	term     int
+	votedFor int
+	log      []Entry
 	// Volatile
-	state	  int
-	cd 		  CountDown
+	state int
+	cd    CountDown
 	// Your data here 2B
 	commitIndex int
-	nextIndex	[]int
-	matchIndex	[]int
-	applyCh		chan ApplyMsg
+	nextIndex   []int
+	matchIndex  []int
+	applyCh     chan ApplyMsg
 	// Your data here 2C
 
 	// Look at the paper's Figure 2 for a description of what
@@ -98,20 +110,20 @@ type Raft struct {
 }
 
 type Entry struct {
-	Term	int
-	Cmd		interface{}
+	Term int
+	Cmd  interface{}
 }
 
 type Data struct {
-	val 	int
-	mu	sync.Mutex
+	val int
+	mu  sync.Mutex
 }
 
 type CountDown struct {
-	version 	int64
-	istimeout	bool
-	mu			sync.Mutex
-	cond		*sync.Cond
+	version   int64
+	istimeout bool
+	mu        sync.Mutex
+	cond      *sync.Cond
 }
 
 // return currentTerm and whether this server
@@ -141,7 +153,6 @@ func (rf *Raft) persist() {
 	// rf.persister.SaveRaftState(data)
 }
 
-
 //
 // restore previously persisted state.
 //
@@ -166,37 +177,37 @@ func (rf *Raft) readPersist(data []byte) {
 
 type RequestVoteArgs struct {
 	// Your data here 2A
-	Term 			int
-	CandidateID		int
+	Term        int
+	CandidateID int
 	// Your data here 2B
-	LastLogIndex	int
-	LastLogTerm		int
+	LastLogIndex int
+	LastLogTerm  int
 }
 
 type RequestVoteReply struct {
 	// Your data here (2A).
-	Term			int
-	VoteGranted		bool
+	Term        int
+	VoteGranted bool
 }
 
 type AppendEntriesArgs struct {
 	// Your data here 2A
-	Term			int
-	LeaderID		int
+	Term     int
+	LeaderID int
 	// Your data here 2B
-	PrevLogIndex	int
-	PrevLogTerm		int
-	Entries			[]Entry
-	LeaderCommit	int
+	PrevLogIndex int
+	PrevLogTerm  int
+	Entries      []Entry
+	LeaderCommit int
 }
 
 type AppendEntriesReply struct {
-	Term			int
-	Success 		bool
+	Term    int
+	Success bool
 }
 
 // if request term is smaller or equal to current term, success
-// upon receiving heartbeat, reset the timer setup in election (conditional variable)
+// reset the timer setup in election (conditional variable)
 func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply) {
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
@@ -205,7 +216,7 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 		reply.Term = rf.term
 		fmt.Printf(
 			"%v: AppendEntries from %v failed: term{%v %v}, {%v %v}, nEntry: %v\n",
-			rf.me, args.LeaderID, 
+			rf.me, args.LeaderID,
 			args.Term, rf.term,
 			args.PrevLogIndex, args.PrevLogTerm,
 			len(args.Entries),
@@ -223,14 +234,14 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 	nLog := len(rf.log)
 	fmt.Printf(
 		"%v: AppendEntries from %v in term %v: "+
-		"idx: {%v %v}, term: {%v %v}, commit: {%v %v}, nEntry: %v\n",
+			"idx: {%v %v}, term: {%v %v}, commit: {%v %v}, nEntry: %v\n",
 		rf.me, args.LeaderID, args.Term,
-		args.PrevLogIndex, nLog - 1,
+		args.PrevLogIndex, nLog-1,
 		args.PrevLogTerm, rf.log[nLog-1].Term,
 		rf.commitIndex, args.LeaderCommit,
 		len(args.Entries),
 	)
-	if args.PrevLogIndex > nLog - 1 || args.PrevLogTerm > rf.log[nLog-1].Term {
+	if args.PrevLogIndex > nLog-1 || args.PrevLogTerm > rf.log[nLog-1].Term {
 		// outdated log
 		reply.Success = false
 		reply.Term = rf.term
@@ -241,7 +252,7 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 			rf.log = append(rf.log[:args.PrevLogIndex+1], args.Entries...)
 		}
 		for ; rf.commitIndex < args.LeaderCommit; rf.commitIndex++ {
-			rf.applyCh <- ApplyMsg{true, rf.log[rf.commitIndex+1].Cmd, rf.commitIndex+1}
+			rf.applyCh <- ApplyMsg{true, rf.log[rf.commitIndex+1].Cmd, rf.commitIndex + 1}
 		}
 	}
 	reply.Success = true
@@ -249,6 +260,7 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 	return
 }
 
+// this also reset the timer
 func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 	// Your code here (2A, 2B).
 	rf.mu.Lock()
@@ -260,8 +272,8 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 		args.Term, rf.term,
 	)
 	nLog := len(rf.log)
-	if	args.Term < rf.term || 
-		args.LastLogTerm < rf.log[nLog-1].Term || 
+	if args.Term < rf.term ||
+		args.LastLogTerm < rf.log[nLog-1].Term ||
 		(args.LastLogTerm == rf.log[nLog-1].Term && args.LastLogIndex < nLog) {
 		// fail: outdated request
 		reply.VoteGranted = false
@@ -289,6 +301,7 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 // if it's in LEADER state, send heartbeats
 // if FOLLOWER, start timer for every round, heartbeat can reset this timer
 // then timer is up (timeout), it raises an election
+// once it becomes LEADER, force all other servers to replicate its log
 func (rf *Raft) election() {
 	cd := &rf.cd
 	cd.cond.L.Lock()
@@ -298,7 +311,7 @@ func (rf *Raft) election() {
 		}
 		if rf.state == LEADER {
 			rf.heartbeats()
-			time.Sleep(HEARTBEAT_INTERVAL*time.Millisecond)
+			time.Sleep(HEARTBEAT_INTERVAL * time.Millisecond)
 		} else {
 			for ; ; cd_ver_inc(cd) {
 				go rf.setwakeup(cd)
@@ -308,10 +321,10 @@ func (rf *Raft) election() {
 					cd.istimeout = false
 					rf.mu.Lock()
 					// fmt.Printf("%v: Became Leader in term %v\n",rf.me, rf.term)
-					fmt.Printf("\033[0;33m%v: Became Leader in term %v\033[0m\n",rf.me, rf.term)
+					fmt.Printf("\033[0;33m%v: Became Leader in term %v\033[0m\n", rf.me, rf.term)
 					rf.state = LEADER
 					rf.votedFor = -1
-					if len(rf.log) != 1 && len(rf.log) - 1 > rf.commitIndex {
+					if len(rf.log) != 1 && len(rf.log)-1 > rf.commitIndex {
 						// force follower to replicate its log
 						go rf.agreement(len(rf.log)-1, rf.log[len(rf.log)-1].Cmd)
 					} else {
@@ -337,7 +350,7 @@ func (rf *Raft) heartbeats() bool {
 	defer rf.mu.Unlock()
 	args := AppendEntriesArgs{
 		rf.term, rf.me,
-		len(rf.log)-1, rf.log[len(rf.log)-1].Term,
+		len(rf.log) - 1, rf.log[len(rf.log)-1].Term,
 		[]Entry{}, rf.commitIndex,
 	}
 	term := Data{rf.term, sync.Mutex{}}
@@ -355,9 +368,9 @@ func (rf *Raft) heartbeats() bool {
 				}
 				term.mu.Unlock()
 			}
-		} (peer)
+		}(peer)
 	}
-	time.Sleep(TIMEOUT*time.Millisecond)
+	time.Sleep(TIMEOUT * time.Millisecond)
 	if term.val > rf.term {
 		rf.term = term.val
 		rf.votedFor = -1
@@ -399,9 +412,9 @@ func (rf *Raft) launch_election() bool {
 				}
 				term.mu.Unlock()
 			}
-		} (peer)
+		}(peer)
 	}
-	time.Sleep(TIMEOUT*time.Millisecond)
+	time.Sleep(TIMEOUT * time.Millisecond)
 	if term.val > rf.term || vote.val <= len(rf.peers)/2 {
 		rf.state = FOLLOWER
 		rf.term = term.val
@@ -460,28 +473,29 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 	}
 }
 
-// this defer ensures commitIndex is assigned uniquely to different 
+// 1. this defer ensures commitIndex is assigned uniquely to different
 // commands, it makes (Start + agreement) atomic, at the same time
 // Start() can return immediately
+// 2. if recipient's log is outdated, it simply went back an index and 
+// resend
 func (rf *Raft) agreement(idx int, command interface{}) bool {
 	defer rf.mu.Unlock()
-	entry := Entry{rf.term,command}
+	entry := Entry{rf.term, command}
 	nLog := len(rf.log)
 	// fmt.Printf("%v: agreement %v in term %v\n", rf.me, command, rf.term)
 	fmt.Printf("\033[1;33m%v: agreement %v in term %v\033[0m\n", rf.me, command, rf.term)
 	if idx == nLog {
 		rf.log = append(rf.log, entry)
 	}
-	nAppended := Data{1,sync.Mutex{}}
-	_args := AppendEntriesArgs{
-		rf.term, rf.me, nLog-1, rf.log[nLog-1].Term,
-		[]Entry{entry}, rf.commitIndex,
-	}
+	nAppended := Data{1, sync.Mutex{}}
 	for i, peer := range rf.peers {
 		if i == rf.me {
 			continue
 		}
-		args := _args
+		args := AppendEntriesArgs{
+			rf.term, rf.me, nLog - 1, rf.log[nLog-1].Term,
+			[]Entry{entry}, rf.commitIndex,
+		}
 		go func(peer *labrpc.ClientEnd) {
 			success := false
 			for !success {
@@ -495,7 +509,7 @@ func (rf *Raft) agreement(idx int, command interface{}) bool {
 				} else if !(reply.Term > args.Term) {
 					idx := args.PrevLogIndex - 1
 					if idx == -1 {
-						return 
+						return
 					}
 					args.PrevLogIndex = idx
 					args.PrevLogTerm = rf.log[idx].Term
@@ -506,7 +520,7 @@ func (rf *Raft) agreement(idx int, command interface{}) bool {
 			}
 		} (peer)
 	}
-	time.Sleep(TIMEOUT*time.Millisecond)
+	time.Sleep(TIMEOUT * time.Millisecond)
 	if nAppended.val > len(rf.peers)/2 {
 		rf.applyCh <- ApplyMsg{true, rf.log[idx].Cmd, idx}
 		rf.commitIndex = max(idx, rf.commitIndex)
@@ -564,18 +578,17 @@ func Make(peers []*labrpc.ClientEnd, me int,
 
 	// Your initialization code here (2A, 2B, 2C).
 	fmt.Printf("%v: initialized\n", rf.me)
-	rf.cd = CountDown{0,false,sync.Mutex{},sync.NewCond(&sync.Mutex{})}
+	rf.cd = CountDown{0, false, sync.Mutex{}, sync.NewCond(&sync.Mutex{})}
 	rf.term = 0
 	rf.state = FOLLOWER
 	rf.votedFor = -1
 	rf.commitIndex = 0
 	rf.applyCh = applyCh
-	rf.log = []Entry{Entry{-1,100}}
+	rf.log = []Entry{Entry{-1, 100}}
 	go rf.election()
 
 	// initialize from state persisted before a crash
 	rf.readPersist(persister.ReadRaftState())
-
 
 	return rf
 }
