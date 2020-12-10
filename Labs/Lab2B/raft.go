@@ -521,7 +521,7 @@ func (rf *Raft) agreement(idx int, command interface{}) bool {
 		} (peer)
 	}
 	time.Sleep(TIMEOUT * time.Millisecond)
-	if nAppended.val > len(rf.peers)/2 {
+	if nAppended.val > len(rf.peers)/2 && idx == rf.commitIndex + 1{
 		rf.applyCh <- ApplyMsg{true, rf.log[idx].Cmd, idx}
 		rf.commitIndex = max(idx, rf.commitIndex)
 		return true
