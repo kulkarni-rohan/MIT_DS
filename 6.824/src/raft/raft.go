@@ -49,19 +49,11 @@ const TIMEOUT = 30
 // agreement heartbeats ratio
 const AHR = 20
 
-func max(a int, b int) int {
-	if a > b {
-		return a
-	} else {
-		return b
-	}
+func Max64(a int64, b int64) int64 {
+	if a > b { return a } else { return b }
 }
-func min(a int, b int) int {
-	if a < b {
-		return a
-	} else {
-		return b
-	}
+func Min64(a int64, b int64) int64 {
+	if a < b { return a } else { return b }
 }
 
 //
@@ -330,9 +322,15 @@ func (rf *Raft) election() {
 		if rf.killed() {
 			return
 		}
-		if rf.state == LEADER {
+		rf.mu.Lock()
+		state := rf.state
+		rf.mu.Unlock()
+		if state == LEADER {
 			if c % AHR == 0 {
-				if len(rf.log) != 1 {
+				rf.mu.Lock()
+				nLog := len(rf.log)
+				rf.mu.Unlock()
+				if nLog != 1 {
 					// force newly joined nodes to update
 					rf.mu.Lock()
 					go rf.agreement(len(rf.log)-1, rf.log[len(rf.log)-1].Cmd)
@@ -364,7 +362,9 @@ func (rf *Raft) election() {
 					cd.mu.Unlock()
 					break
 				} else {
+					rf.mu.Lock()
 					rf.state = FOLLOWER
+					rf.mu.Unlock()
 				}
 				cd.mu.Unlock()
 			}
@@ -448,9 +448,15 @@ func (rf *Raft) launch_election() bool {
 		}(peer)
 	}
 	time.Sleep(TIMEOUT * time.Millisecond)
-	if term.val > rf.term || vote.val <= len(rf.peers)/2 {
+	term.mu.Lock()
+	max_term := term.val
+	term.mu.Unlock()
+	vote.mu.Lock()
+	vote_cnt := vote.val
+	vote.mu.Unlock()
+	if max_term > rf.term || vote_cnt <= len(rf.peers)/2 {
 		rf.state = FOLLOWER
-		rf.term = term.val
+		rf.term = max_term
 		rf.persist()
 		return false
 	}
@@ -499,8 +505,9 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 	rf.mu.Lock()
 	// Your code here (2B).
 	if rf.state == LEADER {
-		go rf.agreement(len(rf.log), command)
-		return len(rf.log), rf.term, true
+		nLog := len(rf.log)
+		go rf.agreement(nLog, command)
+		return nLog, rf.term, true
 	} else {
 		rf.mu.Unlock()
 		return -1, -1, false
@@ -560,7 +567,10 @@ func (rf *Raft) agreement(idx int, command interface{}) bool {
 		} (peer)
 	}
 	time.Sleep(TIMEOUT * time.Millisecond)
-	if nAppended.val > len(rf.peers)/2 && idx >= rf.commitIndex + 1 {
+	nAppended.mu.Lock()
+	nAppend := nAppended.val
+	nAppended.mu.Unlock()
+	if nAppend > len(rf.peers)/2 && idx >= rf.commitIndex + 1 {
 		if idx == rf.commitIndex + 1 {
 			rf.applyCh <- ApplyMsg{true, rf.log[idx].Cmd, idx}
 		} else {

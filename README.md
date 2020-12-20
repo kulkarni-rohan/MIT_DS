@@ -1,9 +1,9 @@
 # MIT_DS
 
 ## Progress
-✔Passed all tests: 1, 2A, 2B, 2C\
+✔Passed all tests: 1, 2A, 2B, 2C, 3A\
 ❌Partially passed: -\
-❓WIP: 3A, 3B, 4A, 4B
+❓WIP: 3B, 4A, 4B
 
 ## Environment
 OS: Ubuntu 18.04 on WSL2\

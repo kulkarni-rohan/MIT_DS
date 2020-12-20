@@ -2,8 +2,21 @@ package kvraft
 
 const (
 	OK             = "OK"
-	ErrNoKey       = "ErrNoKey"
-	ErrWrongLeader = "ErrWrongLeader"
+	ErrNoKey       = "ErrNoKey" // no need retry
+	ErrWrongLeader = "ErrWrongLeader" // retry
+	ErrNoContinuity = "ErrNoContinuity" // retry
+)
+
+// Op.Op
+const (
+	GET		= "Get"
+	PUT 	= "Put"
+	APPEND  = "Append"
+)
+
+// interval between each round of Get/PutAppend in ms
+const (
+	RPCTIMEOUT = 200
 )
 
 type Err string
@@ -14,8 +27,8 @@ type PutAppendArgs struct {
 	Value string
 	Op    string // "Put" or "Append"
 	// You'll have to add definitions here.
-	// Field names must start with capital letters,
-	// otherwise RPC will break.
+	Id    int64
+	Ver	  int64
 }
 
 type PutAppendReply struct {
@@ -25,6 +38,8 @@ type PutAppendReply struct {
 type GetArgs struct {
 	Key string
 	// You'll have to add definitions here.
+	Id    int64
+	Ver	  int64
 }
 
 type GetReply struct {
