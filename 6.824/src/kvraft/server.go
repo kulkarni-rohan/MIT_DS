@@ -7,6 +7,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"fmt"
+	"bytes"
 )
 
 const Debug = 1
@@ -35,7 +36,7 @@ type cond struct {
 }
 
 type ck struct {
-	idx int64
+	id int64
 	ver int64
 	records map[int64]interface{}
 	// records []interface{}
@@ -65,6 +66,7 @@ type KVServer struct {
 	cks		[]ck	// clerks
 	ckId2Idx	map[int64]int // clerk Id to Index in clerks array
 	cksMu	sync.Mutex // mutex for clerks
+	persister	*raft.Persister
 }
 
 // extend condition variable to be at least as long as the client number
@@ -94,7 +96,7 @@ func (kv *KVServer) wakeup(idx int) {
 func (kv *KVServer) updateCkRecords(id int64, ver int64, reply interface{}) {
 	idx := kv.ckId2Idx[id]
 	ck := &kv.cks[idx]
-	fmt.Printf("Server %v: id: %v, ver: %v, ck.ver: %v\n", kv.me, ck.idx, ver, ck.ver)
+	fmt.Printf("Server %v: id: %v, ver: %v, ck.ver: %v\n", kv.me, ck.id, ver, ck.ver)
 	if ver != ck.ver + 1 {
 		return
 		// panic("kv.updateCkRecords: not continuous")
@@ -104,9 +106,9 @@ func (kv *KVServer) updateCkRecords(id int64, ver int64, reply interface{}) {
 }
 
 // must be called with kv.cksMu held
-func (kv *KVServer) createRecord(id int64) {
+func (kv *KVServer) createRecord(id int64, ver int64) {
 	nCks := len(kv.cks)
-	kv.cks = append(kv.cks, ck{id, 0, make(map[int64]interface{}), sync.Mutex{}})
+	kv.cks = append(kv.cks, ck{id, ver, make(map[int64]interface{}), sync.Mutex{}})
 	kv.ckId2Idx[id] = nCks
 }
 
@@ -118,7 +120,7 @@ func (kv *KVServer) checkContinuity(id int64, ver int64) bool {
 	defer kv.cksMu.Unlock()
 	idx, ok := kv.ckId2Idx[id]
 	if !ok {
-		kv.createRecord(id)
+		kv.createRecord(id, 0)
 		return true
 	}
 	ck := &kv.cks[idx]
@@ -133,13 +135,13 @@ func (kv *KVServer) checkSubmitted(id int64, ver int64) (interface{}, bool) {
 	defer kv.cksMu.Unlock()
 	idx := kv.ckId2Idx[id]
 	ck := &kv.cks[idx]
+	record := ck.records[ver]
 	if ck.ver >= ver {
-		fmt.Printf("%v: Loading\n", kv.me)
-		return ck.records[ver], true
+		fmt.Printf("%v: Loading, ver: %v, ck.ver: %v\n", kv.me, ver, ck.ver)
+		return record, true
 	}
 	return 1, false
 }
-
 
 func (kv *KVServer) submit(cmd Op) int {
 	lastcommit := kv.lastcommit
@@ -167,6 +169,15 @@ func (kv *KVServer) Get(args *GetArgs, reply *GetReply) {
 		return
 	}
 	oldReply, isSubmitted := kv.checkSubmitted(args.Id, args.Ver)
+	if oldReply == nil {
+		v, ok := kv.m[args.Key]
+		if !ok {
+			reply.Err = ErrNoKey
+		} else {
+			reply.Value = v
+		}
+		return
+	}
 	if isSubmitted {
 		reply.Err = oldReply.(GetReply).Err
 		reply.Value = oldReply.(GetReply).Value
@@ -181,13 +192,22 @@ func (kv *KVServer) Get(args *GetArgs, reply *GetReply) {
 	}
 	kv.wait(idx)
 	oldReply, isSubmitted = kv.checkSubmitted(args.Id, args.Ver)
+	if oldReply == nil {
+		v, ok := kv.m[args.Key]
+		if !ok {
+			reply.Err = ErrNoKey
+		} else {
+			reply.Value = v
+		}
+		return
+	}
 	if isSubmitted {
 		reply.Err = oldReply.(GetReply).Err
 		reply.Value = oldReply.(GetReply).Value
 		return
 	} else {
 		// panic("kv.Get: submitted but cannot find")
-		reply.Err = ErrWrongLeader
+		reply.Err = ErrUnknown
 		return
 	}
 }
@@ -269,8 +289,16 @@ func (kv *KVServer) msgHandler(applyCh chan raft.ApplyMsg) {
 		idx := m.CommandIndex
 		if m.CommandValid == false {
 			// ignore other types of ApplyMsg
+			kv.mu.Lock()
+			kv.recover()
+			kv.mu.Unlock()
 		} else if idx <= kv.lastcommit {
 			// pass
+			fmt.Printf(
+				"Server %v: ignored ApplyMsg idx: %v, lastcommit: %v\n", 
+				kv.me, idx, kv.lastcommit,
+			)
+			kv.snapshot(false)
 		} else if idx > kv.lastcommit + 1 {
 			panic("kv.msgHandler: non-continuous commit")
 		} else {
@@ -278,7 +306,7 @@ func (kv *KVServer) msgHandler(applyCh chan raft.ApplyMsg) {
 			kv.cksMu.Lock()
 			_, ok := kv.ckId2Idx[op.Id]
 			if !ok {
-				kv.createRecord(op.Id)
+				kv.createRecord(op.Id, 0)
 			}
 			kv.cksMu.Unlock()
 			fmt.Printf(
@@ -286,16 +314,71 @@ func (kv *KVServer) msgHandler(applyCh chan raft.ApplyMsg) {
 				// "\033[1;35m%v: committed %v at index %v\033[0m\n",
 				kv.me, m.Command, m.CommandIndex,
 			)
+			kv.mu.Lock()
 			kv.execute(op)
 			kv.lastcommit++
+			toSnapshot := kv.maxraftstate > 0 && kv.rf.StateSize() >= kv.maxraftstate
+			kv.snapshot(toSnapshot)
+			kv.mu.Unlock()
 			kv.wakeup(idx)
 		}
 	}
 }
 
+// must be called with kv.mu held
+func (kv *KVServer) snapshot(toSnapshot bool) {
+	if !toSnapshot {
+		kv.rf.DiscardBefore(-1, []byte{})
+		return
+	}
+	fmt.Printf("Server %v: Snapshotting...\n", kv.me)
+	// fmt.Printf("\033[1;32mServer %v: Snapshotting...\033[0m\n", kv.me)
+	w := new(bytes.Buffer)
+	e := labgob.NewEncoder(w)
+	e.Encode(kv.lastcommit)
+	e.Encode(len(kv.m))
+	for k, v := range kv.m {
+		e.Encode(k)
+		e.Encode(v)
+	}
+	nClerk := len(kv.cks)
+	e.Encode(nClerk)
+	for i := 0; i < nClerk; i++ {
+		e.Encode(kv.cks[i].id)
+		e.Encode(kv.cks[i].ver)
+	}
+	snapshot := w.Bytes()
+	kv.rf.DiscardBefore(kv.lastcommit+1, snapshot)
+}
+
+// recover from snapshot
 func (kv *KVServer) recover() {
-// 	kv.rf.mu.Lock()
-// 	defer kv.rf.mu.Unlock()
+	fmt.Printf("Server %v: Recover\n", kv.me)
+	data := kv.persister.ReadSnapshot()
+	if data == nil || len(data) < 1 {
+		kv.lastcommit = 0
+		return
+	}
+	d := labgob.NewDecoder(bytes.NewBuffer(data))
+	var nKey, lastcommit int
+	d.Decode(&lastcommit)
+	d.Decode(&nKey)
+	kv.lastcommit = lastcommit
+	for i := 0; i < nKey; i++ {
+		var k, v string
+		d.Decode(&k)
+		d.Decode(&v)
+		kv.m[k] = v
+	}
+	var nClerk int
+	d.Decode(&nClerk)
+	for i := 0; i < nClerk; i++ {
+		var id, ver int64
+		d.Decode(&id)
+		d.Decode(&ver)
+		kv.createRecord(id, ver)
+	}
+	return
 }
 
 //
@@ -320,6 +403,7 @@ func StartKVServer(servers []*labrpc.ClientEnd, me int, persister *raft.Persiste
 	kv := new(KVServer)
 	kv.me = me
 	kv.maxraftstate = maxraftstate
+	kv.persister = persister
 
 	// You may need initialization code here.
 
@@ -329,11 +413,9 @@ func StartKVServer(servers []*labrpc.ClientEnd, me int, persister *raft.Persiste
 	kv.m = make(map[string]string)
 	kv.ckId2Idx = make(map[int64]int)
 	kv.applyCh = make(chan raft.ApplyMsg)
+	kv.recover()
 	go kv.msgHandler(kv.applyCh)
 	kv.rf = raft.Make(servers, me, persister, kv.applyCh)
-	kv.recover()
-
-	// You may need initialization code here.
 
 	return kv
 }

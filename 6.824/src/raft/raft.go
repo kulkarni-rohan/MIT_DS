@@ -29,50 +29,6 @@ import (
 	"../labgob"
 )
 
-// status
-const (
-	LEADER    = 0
-	CANDIDATE = 1
-	FOLLOWER  = 2
-)
-
-// heartbeat interval in milliseconds
-const (
-	HEARTBEAT_MIN      = 200
-	HEARTBEAT_RANGE    = 400
-	HEARTBEAT_INTERVAL = 50
-)
-
-// rpc timeout in milliseconds
-const TIMEOUT = 30
-
-// agreement heartbeats ratio
-const AHR = 20
-
-func Max64(a int64, b int64) int64 {
-	if a > b { return a } else { return b }
-}
-func Min64(a int64, b int64) int64 {
-	if a < b { return a } else { return b }
-}
-
-//
-// as each Raft peer becomes aware that successive log entries are
-// committed, the peer should send an ApplyMsg to the service (or
-// tester) on the same server, via the applyCh passed to Make(). set
-// CommandValid to true to indicate that the ApplyMsg contains a newly
-// committed log entry.
-//
-// in Lab 3 you'll want to send other kinds of messages (e.g.,
-// snapshots) on the applyCh; at that point you can add fields to
-// ApplyMsg, but set CommandValid to false for these other uses.
-//
-type ApplyMsg struct {
-	CommandValid bool
-	Command      interface{}
-	CommandIndex int
-}
-
 //
 // A Go object implementing a single Raft peer.
 //
@@ -92,20 +48,17 @@ type Raft struct {
 	state int
 	cd    CountDown
 	// Your data here 2B
-	commitIndex int
+	commitIndex int // next record to commit
 	nextIndex   []int
 	matchIndex  []int
 	applyCh     chan ApplyMsg
 	// Your data here 2C
-
+	// 3B
+	offset int // read index = index + offset
+	disgardCh	chan bool
 	// Look at the paper's Figure 2 for a description of what
 	// state a Raft server must maintain.
 
-}
-
-type Entry struct {
-	Term int
-	Cmd  interface{}
 }
 
 type Data struct {
@@ -125,9 +78,9 @@ type CountDown struct {
 func (rf *Raft) GetState() (int, bool) {
 	// Your code here (2A).
 	rf.mu.Lock()
+	defer rf.mu.Unlock()
 	term := rf.term
 	isleader := (rf.state == LEADER)
-	rf.mu.Unlock()
 	return term, isleader
 }
 
@@ -143,6 +96,7 @@ func (rf *Raft) persist() {
 	e := labgob.NewEncoder(w)
 	e.Encode(rf.votedFor)
 	e.Encode(rf.term)
+	e.Encode(rf.offset)
 	nLog := len(rf.log)
 	e.Encode(nLog)
 	for i := 0; i < nLog; i++ {
@@ -160,16 +114,21 @@ func (rf *Raft) persist() {
 func (rf *Raft) readPersist(data []byte) {
 	// Your code here (2C).
 	// if no error Decode returns error
+	fmt.Printf("%v: readPersist\n", rf.me)
 	if data == nil || len(data) < 1 {
 		rf.votedFor = -1
 		rf.term = 0
 		rf.log = []Entry{Entry{-1, 100}}
 		return
 	}
+	rf.log = []Entry{}
 	d := labgob.NewDecoder(bytes.NewBuffer(data))
-	d.Decode(&rf.votedFor)
-	d.Decode(&rf.term)
-	var nLog int
+	var votedFor, term, offset, nLog int
+	d.Decode(&votedFor)
+	d.Decode(&term)
+	d.Decode(&offset)
+	rf.votedFor, rf.term, rf.offset = votedFor, term, offset
+	rf.commitIndex = rf.offset
 	d.Decode(&nLog)
 	for i := 0; i < nLog; i++ {
 		var entry Entry
@@ -179,35 +138,46 @@ func (rf *Raft) readPersist(data []byte) {
 	return
 }
 
-type RequestVoteArgs struct {
-	// Your data here 2A
-	Term        int
-	CandidateID int
-	// Your data here 2B
-	LastLogIndex int
-	LastLogTerm  int
+// discard logs before idx, after this operation, idx becomes index 1
+// cidx -> raft index; tidx -> server index
+func (rf *Raft) DiscardBefore(tidx int, snapshot []byte) {
+	// 3B
+	if tidx == -1 {
+		rf.disgardCh <- false
+		return
+	}
+	fmt.Printf("%v: DiscardBefore %v\n", rf.me, tidx)
+	cidx := tidx - rf.offset
+	if cidx < 1 {
+		fmt.Printf("%v: cidx < 1\n", rf.me)
+		return
+	}
+	if cidx <= len(rf.log) {
+		rf.log = rf.log[cidx-1:]
+	} else {
+		panic("raft.DiscardBefore")
+	}
+	rf.offset += cidx - 1
+	
+	w := new(bytes.Buffer)
+	e := labgob.NewEncoder(w)
+	e.Encode(rf.votedFor)
+	e.Encode(rf.term)
+	e.Encode(rf.offset)
+	nLog := len(rf.log)
+	e.Encode(nLog)
+	for i := 0; i < nLog; i++ {
+		entry := rf.log[i]
+		e.Encode(entry)
+	}
+	state := w.Bytes()
+
+	rf.persister.SaveStateAndSnapshot(state, snapshot)
+	rf.disgardCh <- true
 }
 
-type RequestVoteReply struct {
-	// Your data here (2A).
-	Term        int
-	VoteGranted bool
-}
-
-type AppendEntriesArgs struct {
-	// Your data here 2A
-	Term     int
-	LeaderID int
-	// Your data here 2B
-	PrevLogIndex int
-	PrevLogTerm  int
-	Entries      []Entry
-	LeaderCommit int
-}
-
-type AppendEntriesReply struct {
-	Term    int
-	Success bool
+func (rf *Raft) StateSize() int {
+	return rf.persister.RaftStateSize()
 }
 
 // if request term is smaller or equal to current term, success
@@ -236,32 +206,48 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 	reply.Success = true
 	reply.Term = rf.term
 
-	nLog := len(rf.log)
+	cLog := len(rf.log) // current # of Log 
+	tLog := len(rf.log) + rf.offset // total # of Log 
 	if !(len(args.Entries) == 0 && rf.commitIndex == args.LeaderCommit &&
-	args.PrevLogTerm == rf.log[nLog-1].Term && args.PrevLogIndex == nLog-1) {
+	args.PrevLogTerm == rf.log[cLog-1].Term && args.PrevLogIndex == tLog-1) {
 		fmt.Printf(
 			"%v: AppendEntries from %v in term %v: "+
 				"pidx: {%v %v}, pterm: {%v %v}, commit: {%v %v}, nEntry: %v\n",
 			rf.me, args.LeaderID, args.Term,
-			args.PrevLogIndex, nLog-1,
-			args.PrevLogTerm, rf.log[nLog-1].Term,
+			args.PrevLogIndex, tLog-1,
+			args.PrevLogTerm, rf.log[cLog-1].Term,
 			args.LeaderCommit, rf.commitIndex, 
 			len(args.Entries),
 		)
 	}
-	if args.PrevLogIndex > nLog-1 || args.PrevLogTerm > rf.log[nLog-1].Term {
+	if args.PrevLogIndex > tLog - 1 || args.PrevLogTerm > rf.log[cLog-1].Term {
 		// outdated log
 		reply.Success = false
 		reply.Term = rf.term
 		return
 	} else {
 		// heartbeat / update
-		if len(args.Entries) > 0 {
-			rf.log = append(rf.log[:args.PrevLogIndex+1], args.Entries...)
+		nEntry := len(args.Entries)
+		pidx := args.PrevLogIndex
+		if pidx + nEntry >= rf.offset {
+			if pidx + 1 <= rf.offset {
+				rf.log = args.Entries[rf.offset-(pidx+1):]
+			} else {
+				rf.log = append(rf.log[:pidx+1-rf.offset], args.Entries...)
+			}
 			rf.persist()
+		} else {
+			reply.Success = false
+			reply.Term = rf.term
+			return
 		}
+		tLog := len(rf.log) + rf.offset
 		for ; rf.commitIndex < args.LeaderCommit; rf.commitIndex++ {
-			rf.applyCh <- ApplyMsg{true, rf.log[rf.commitIndex+1].Cmd, rf.commitIndex+1}
+			if tLog <= rf.commitIndex + 1 {
+				break
+			}
+			rf.applyCh <- ApplyMsg{true, rf.log[rf.commitIndex+1-rf.offset].Cmd, rf.commitIndex+1}
+			<-rf.disgardCh
 		}
 	}
 	reply.Success = true
@@ -280,10 +266,11 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 		args.LastLogIndex, args.LastLogTerm,
 		args.Term, rf.term,
 	)
-	nLog := len(rf.log)
+	cLog := len(rf.log)
+	tLog := len(rf.log) + rf.offset
 	if args.Term < rf.term ||
-		args.LastLogTerm < rf.log[nLog-1].Term ||
-		(args.LastLogTerm == rf.log[nLog-1].Term && args.LastLogIndex < nLog) {
+		args.LastLogTerm < rf.log[cLog-1].Term ||
+		(args.LastLogTerm == rf.log[cLog-1].Term && args.LastLogIndex < tLog) {
 		// fail: outdated request
 		reply.VoteGranted = false
 		reply.Term = rf.term
@@ -310,6 +297,19 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 	return
 }
 
+func (rf *Raft) InstallSnapshot(args *InstallSnapshotArgs, reply *InstallSnapshotReply) {
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+	if args.Term < rf.term {
+		reply.Term = args.Term
+		return
+	}
+	fmt.Printf("%v: InstallSnapshot from %v\n", rf.me, args.LeaderID)
+	rf.persister.SaveStateAndSnapshot(args.State, args.Snapshot)
+	rf.readPersist(rf.persister.ReadRaftState())
+	rf.applyCh <- ApplyMsg{false, nil, 0}
+}
+
 // if it's in LEADER state, send heartbeats
 // if FOLLOWER, start timer for every round, heartbeat can reset this timer
 // then timer is up (timeout), it raises an election
@@ -328,12 +328,13 @@ func (rf *Raft) election() {
 		if state == LEADER {
 			if c % AHR == 0 {
 				rf.mu.Lock()
-				nLog := len(rf.log)
-				rf.mu.Unlock()
-				if nLog != 1 {
+				cLog := len(rf.log)
+				tLog := len(rf.log) + rf.offset
+				if cLog > 1 && tLog - 1 > rf.commitIndex {
 					// force newly joined nodes to update
-					rf.mu.Lock()
-					go rf.agreement(len(rf.log)-1, rf.log[len(rf.log)-1].Cmd)
+					go rf.agreement(tLog-1, rf.log[cLog-1].Cmd)
+				} else {
+					rf.mu.Unlock()
 				}
 			} else {
 				rf.heartbeats()
@@ -353,9 +354,11 @@ func (rf *Raft) election() {
 					rf.state = LEADER
 					rf.votedFor = -1
 					rf.persist()
-					if len(rf.log) != 1 && len(rf.log)-1 > rf.commitIndex {
+					cLog := len(rf.log)
+					tLog := len(rf.log) + rf.offset
+					if cLog > 1 && tLog - 1 > rf.commitIndex {
 						// force follower to replicate its log
-						go rf.agreement(len(rf.log)-1, rf.log[len(rf.log)-1].Cmd)
+						go rf.agreement(tLog - 1, rf.log[cLog-1].Cmd)
 					} else {
 						rf.mu.Unlock()
 					}
@@ -379,9 +382,11 @@ func (rf *Raft) heartbeats() bool {
 	rf.mu.Lock()
 	// fmt.Printf("%v: heartbeats in term %v\n",rf.me, rf.term)
 	defer rf.mu.Unlock()
+	cLog := len(rf.log)
+	tLog := len(rf.log) + rf.offset
 	args := AppendEntriesArgs{
 		rf.term, rf.me,
-		len(rf.log) - 1, rf.log[len(rf.log)-1].Term,
+		tLog - 1, rf.log[cLog-1].Term,
 		[]Entry{}, rf.commitIndex,
 	}
 	term := Data{rf.term, sync.Mutex{}}
@@ -425,8 +430,9 @@ func (rf *Raft) launch_election() bool {
 	// fmt.Printf("%v: launched election in term %v\n",rf.me, rf.term)
 	vote := Data{1, sync.Mutex{}}
 	term := Data{rf.term, sync.Mutex{}}
-	nLog := len(rf.log)
-	args := RequestVoteArgs{rf.term, rf.me, nLog, rf.log[nLog-1].Term}
+	cLog := len(rf.log)
+	tLog := len(rf.log) + rf.offset
+	args := RequestVoteArgs{rf.term, rf.me, tLog, rf.log[cLog-1].Term}
 	for i, peer := range rf.peers {
 		if i == rf.me {
 			continue
@@ -505,9 +511,9 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 	rf.mu.Lock()
 	// Your code here (2B).
 	if rf.state == LEADER {
-		nLog := len(rf.log)
-		go rf.agreement(nLog, command)
-		return nLog, rf.term, true
+		tLog := len(rf.log) + rf.offset
+		go rf.agreement(tLog, command)
+		return tLog, rf.term, true
 	} else {
 		rf.mu.Unlock()
 		return -1, -1, false
@@ -522,13 +528,13 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 func (rf *Raft) agreement(idx int, command interface{}) bool {
 	defer rf.mu.Unlock()
 	entry := Entry{rf.term, command}
-	nLog := len(rf.log)
+	tLog := len(rf.log) + rf.offset
 	fmt.Printf(
 		"%v: agreement[%v] %v in term %v\n", 
 		// "\033[1;33m%v: agreement[%v] %v in term %v\033[0m\n", 
 		rf.me, idx, command, rf.term,
 	)
-	if idx == nLog {
+	if idx == tLog {
 		rf.log = append(rf.log, entry)
 		rf.persist()
 	}
@@ -538,7 +544,7 @@ func (rf *Raft) agreement(idx int, command interface{}) bool {
 			continue
 		}
 		args := AppendEntriesArgs{
-			rf.term, rf.me, idx - 1, rf.log[idx-1].Term,
+			rf.term, rf.me, idx - 1, rf.log[idx-1-rf.offset].Term,
 			[]Entry{entry}, rf.commitIndex,
 		}
 		go func(peer *labrpc.ClientEnd) {
@@ -552,14 +558,21 @@ func (rf *Raft) agreement(idx int, command interface{}) bool {
 					nAppended.val++
 					nAppended.mu.Unlock()
 					return
-				} else if !(reply.Term > args.Term) && args.PrevLogIndex > 0 {
-					i := args.PrevLogIndex - 1
+				} else if !(reply.Term > args.Term) && args.PrevLogIndex - rf.offset > 0 {
+					i := args.PrevLogIndex - rf.offset - 1
 					for ok := false; !ok && i > 0; i-- {
 						ok = rf.log[i].Term < rf.term && rf.log[i-1].Term < rf.log[i].Term
 					}
-					args.PrevLogIndex = i
+					args.PrevLogIndex = i + rf.offset
 					args.PrevLogTerm = rf.log[i].Term
 					args.Entries = rf.log[i+1:]
+				} else if !(reply.Term > args.Term) {
+					state := rf.persister.ReadRaftState()
+					snapshot := rf.persister.ReadSnapshot()
+					args1 := InstallSnapshotArgs{rf.term, rf.me, state, snapshot}
+					reply1 := InstallSnapshotReply{}
+					peer.Call("Raft.InstallSnapshot", &args1, &reply1)
+					return
 				} else {
 					return
 				}
@@ -572,10 +585,12 @@ func (rf *Raft) agreement(idx int, command interface{}) bool {
 	nAppended.mu.Unlock()
 	if nAppend > len(rf.peers)/2 && idx >= rf.commitIndex + 1 {
 		if idx == rf.commitIndex + 1 {
-			rf.applyCh <- ApplyMsg{true, rf.log[idx].Cmd, idx}
+			rf.applyCh <- ApplyMsg{true, rf.log[idx-rf.offset].Cmd, idx}
+			<-rf.disgardCh
 		} else {
 			for i := rf.commitIndex + 1; i <= idx; i++ {
-				rf.applyCh <- ApplyMsg{true, rf.log[i].Cmd, i}
+				rf.applyCh <- ApplyMsg{true, rf.log[i-rf.offset].Cmd, i}
+				<-rf.disgardCh
 			}
 		}
 		rf.commitIndex = idx
@@ -636,6 +651,7 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	fmt.Printf("%v: initialized\n", rf.me)
 	rf.cd = CountDown{0, false, sync.Mutex{}, sync.NewCond(&sync.Mutex{})}
 	rf.applyCh = applyCh
+	rf.disgardCh = make(chan bool)
 	rf.state = FOLLOWER
 	rf.commitIndex = 0
 	// initialize from state persisted before a crash

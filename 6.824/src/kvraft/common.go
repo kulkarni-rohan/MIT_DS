@@ -5,6 +5,7 @@ const (
 	ErrNoKey       = "ErrNoKey" // no need retry
 	ErrWrongLeader = "ErrWrongLeader" // retry
 	ErrNoContinuity = "ErrNoContinuity" // retry
+	ErrUnknown 		= "ErrUnknown" // retry
 )
 
 // Op.Op
@@ -16,7 +17,7 @@ const (
 
 // interval between each round of Get/PutAppend in ms
 const (
-	RPCTIMEOUT = 200
+	RPCTIMEOUT = 100
 )
 
 type Err string

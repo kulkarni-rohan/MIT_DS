@@ -14,6 +14,7 @@ type Clerk struct {
 	mu		sync.Mutex
 	id		int64
 	ver		int64
+	isLeader	[]bool
 }
 
 func nrand() int64 {
@@ -30,9 +31,17 @@ func MakeClerk(servers []*labrpc.ClientEnd) *Clerk {
 	// You'll have to add code here.
 	ck.id = nrand()
 	ck.ver = 0
+	ck.isLeader = make([]bool, len(ck.servers))
 	fmt.Printf("Clerk %v: initialized\n", ck.id)
 	// fmt.Printf("\033[1;31mClerk %v: initialized\033[0m\n", ck.id)
 	return ck
+}
+
+// set all entries of isLeader to true
+func (ck *Clerk) restore() {
+	for i := 0; i < len(ck.isLeader); i++ {
+		ck.isLeader[i] = true
+	}
 }
 
 // first call returns 1, assign a version number to each
@@ -65,6 +74,9 @@ func (ck *Clerk) Get(key string) string {
 		ok := false
 		res := ""
 		for i, _ := range ck.servers {
+			if !ck.isLeader[i] {
+				continue
+			}
 			go func(i int) {
 				server := ck.servers[i]
 				reply := GetReply{}
@@ -82,6 +94,8 @@ func (ck *Clerk) Get(key string) string {
 				} else if reply.Err == ErrNoKey {
 					res = ""
 					ok = true
+				} else if reply.Err == ErrWrongLeader {
+					ck.isLeader[i] = false
 				}
 			}(i)
 		}
@@ -91,6 +105,7 @@ func (ck *Clerk) Get(key string) string {
 			ck.mu.Unlock()
 			return res
 		}
+		ck.restore()
 		ck.mu.Unlock()
 	}
 }
@@ -110,16 +125,22 @@ func (ck *Clerk) PutAppend(key string, value string, op string) {
 	args := PutAppendArgs{key, value, op, ck.id, ck.newVer()}
 	for {
 		ok := false
-		for _, server := range ck.servers {
-			go func(server *labrpc.ClientEnd) {
+		for i, _ := range ck.servers {
+			if !ck.isLeader[i] {
+				continue
+			}
+			go func(i int) {
+				server := ck.servers[i]
 				reply := PutAppendReply{}
 				okk := server.Call("KVServer.PutAppend", &args, &reply)
 				ck.mu.Lock()
 				defer ck.mu.Unlock()
 				if okk && reply.Err == "" {
 					ok = true
+				} else if reply.Err == ErrWrongLeader {
+					ck.isLeader[i] = false
 				}
-			}(server)
+			}(i)
 		}
 		time.Sleep(RPCTIMEOUT* time.Millisecond)
 		ck.mu.Lock()
@@ -127,6 +148,7 @@ func (ck *Clerk) PutAppend(key string, value string, op string) {
 			ck.mu.Unlock()
 			return
 		}
+		ck.restore()
 		ck.mu.Unlock()
 	}
 }
