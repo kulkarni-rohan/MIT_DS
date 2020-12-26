@@ -349,8 +349,8 @@ func (rf *Raft) election() {
 				if cd.istimeout && rf.launch_election() {
 					cd.istimeout = false
 					rf.mu.Lock()
-					fmt.Printf("%v: Became Leader in term %v\n",rf.me, rf.term)
-					// fmt.Printf("\033[0;33m%v: Became Leader in term %v\033[0m\n", rf.me, rf.term)
+					// fmt.Printf("%v: Became Leader in term %v\n",rf.me, rf.term)
+					fmt.Printf("\033[0;33m%v: Became Leader in term %v\033[0m\n", rf.me, rf.term)
 					rf.state = LEADER
 					rf.votedFor = -1
 					rf.persist()
@@ -530,8 +530,8 @@ func (rf *Raft) agreement(idx int, command interface{}) bool {
 	entry := Entry{rf.term, command}
 	tLog := len(rf.log) + rf.offset
 	fmt.Printf(
-		"%v: agreement[%v] %v in term %v\n", 
-		// "\033[1;33m%v: agreement[%v] %v in term %v\033[0m\n", 
+		// "%v: agreement[%v] %v in term %v\n", 
+		"\033[1;33m%v: agreement[%v] %v in term %v\033[0m\n", 
 		rf.me, idx, command, rf.term,
 	)
 	if idx == tLog {
@@ -647,8 +647,8 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	rf.me = me
 
 	// Your initialization code here (2A, 2B, 2C).
-	// fmt.Printf("\033[1;31m%v: initialized\033[0m\n", rf.me)
-	fmt.Printf("%v: initialized\n", rf.me)
+	fmt.Printf("\033[1;31m%v: initialized\033[0m\n", rf.me)
+	// fmt.Printf("%v: initialized\n", rf.me)
 	rf.cd = CountDown{0, false, sync.Mutex{}, sync.NewCond(&sync.Mutex{})}
 	rf.applyCh = applyCh
 	rf.disgardCh = make(chan bool)

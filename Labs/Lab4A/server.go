@@ -393,8 +393,8 @@ func (sm *ShardMaster) execute_leave(args LeaveArgs) LeaveReply {
 		MIN := NShards / nGroups
 		MAX := (NShards + nGroups - 1) / nGroups
 		fmt.Printf(
-			"SM Server %v: LEAVE, toDel %v, toArrange: %v, MIN: %v, MAX: %v, config %v, G2S %v\n",
-			sm.me, toDel, toArrange, MIN, MAX, lastConfig, GID2SHARDS_CNT,
+			"SM Server %v: LEAVE, toDel %v, toArrange: %v, MIN: %v, MAX: %v, config %v\n",
+			sm.me, toDel, toArrange, MIN, MAX, lastConfig,
 		)
 		i := 0
 		for GID2, shards_cnt := range GID2SHARDS_CNT {
@@ -466,23 +466,20 @@ func (sm *ShardMaster) execute(op Op) {
 // when raft commit an message, handle it
 func (sm *ShardMaster) msgHandler(applyCh chan raft.ApplyMsg) {
 	for m := range applyCh {
-		sm.mu.Lock()
-		lastcommit := sm.lastcommit
-		sm.mu.Unlock()
 		idx := m.CommandIndex
 		if m.CommandValid == false {
 			// ignore other types of ApplyMsg
 			sm.mu.Lock()
 			sm.recover()
 			sm.mu.Unlock()
-		} else if idx <= lastcommit {
+		} else if idx <= sm.lastcommit {
 			// pass
 			fmt.Printf(
 				"SM Server %v: ignored ApplyMsg idx: %v, lastcommit: %v\n", 
-				sm.me, idx, lastcommit,
+				sm.me, idx, sm.lastcommit,
 			)
 			sm.snapshot(false)
-		} else if idx > lastcommit + 1 {
+		} else if idx > sm.lastcommit + 1 {
 			panic("sm.msgHandler: non-continuous commit")
 		} else {
 			op := m.Command.(Op)
@@ -493,8 +490,8 @@ func (sm *ShardMaster) msgHandler(applyCh chan raft.ApplyMsg) {
 			}
 			sm.cksMu.Unlock()
 			fmt.Printf(
-				// "%v: committed %v at index %v\n",
-				"\033[1;35m%v: committed %v at index %v\033[0m\n",
+				"%v: committed %v at index %v\n",
+				// "\033[1;35m%v: committed %v at index %v\033[0m\n",
 				sm.me, m.Command, m.CommandIndex,
 			)
 			sm.mu.Lock()
@@ -514,8 +511,8 @@ func (sm *ShardMaster) snapshot(toSnapshot bool) {
 		sm.rf.DiscardBefore(-1, []byte{})
 		return
 	}
-	// fmt.Printf("SM Server %v: Snapshotting...\n", sm.me)
-	fmt.Printf("\033[1;32mSM Server %v: Snapshotting...\033[0m\n", sm.me)
+	fmt.Printf("SM Server %v: Snapshotting...\n", sm.me)
+	// fmt.Printf("\033[1;32mSM Server %v: Snapshotting...\033[0m\n", sm.me)
 	w := new(bytes.Buffer)
 	e := labgob.NewEncoder(w)
 	e.Encode(sm.lastcommit)
@@ -573,8 +570,8 @@ func StartServer(servers []*labrpc.ClientEnd, me int, persister *raft.Persister)
 
 	labgob.Register(Op{})
 	// Your code here.
-	fmt.Printf("\033[1;31mServer %v: initialized\033[0m\n", sm.me)
-	// fmt.Printf("SM Server %v: initialized\n", sm.me)
+	// fmt.Printf("\033[1;31mServer %v: initialized\033[0m\n", sm.me)
+	fmt.Printf("SM Server %v: initialized\n", sm.me)
 	sm.conds = []*cond{newCond()}
 	sm.configs = make([]Config, 1)
 	sm.configs[0].Groups = map[int][]string{}

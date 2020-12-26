@@ -36,8 +36,8 @@ func MakeClerk(servers []*labrpc.ClientEnd) *Clerk {
 	ck.id = nrand()
 	ck.ver = 0
 	ck.isLeader = make([]bool, len(ck.servers))
-	// fmt.Printf("SM Clerk %v: initialized\n", ck.id)
-	fmt.Printf("\033[1;31mClerk %v: initialized\033[0m\n", ck.id)
+	fmt.Printf("SM Clerk %v: initialized\n", ck.id)
+	// fmt.Printf("\033[1;31mClerk %v: initialized\033[0m\n", ck.id)
 	return ck
 }
 
