@@ -511,8 +511,8 @@ func (sm *ShardMaster) msgHandler(applyCh chan raft.ApplyMsg) {
 			}
 			sm.cksMu.Unlock()
 			fmt.Printf(
-				// "%v: committed %v at index %v\n",
-				"\033[1;35m%v: committed %v at index %v\033[0m\n",
+				"%v: committed %v at index %v\n",
+				// "\033[1;35m%v: committed %v at index %v\033[0m\n",
 				sm.me, m.Command, m.CommandIndex,
 			)
 			sm.mu.Lock()
@@ -532,8 +532,8 @@ func (sm *ShardMaster) snapshot(toSnapshot bool) {
 		sm.rf.DiscardBefore(-1, []byte{})
 		return
 	}
-	// fmt.Printf("SM Server %v: Snapshotting...\n", sm.me)
-	fmt.Printf("\033[1;32mSM Server %v: Snapshotting...\033[0m\n", sm.me)
+	fmt.Printf("SM Server %v: Snapshotting...\n", sm.me)
+	// fmt.Printf("\033[1;32mSM Server %v: Snapshotting...\033[0m\n", sm.me)
 	w := new(bytes.Buffer)
 	e := labgob.NewEncoder(w)
 	e.Encode(sm.lastcommit)
@@ -591,8 +591,8 @@ func StartServer(servers []*labrpc.ClientEnd, me int, persister *raft.Persister)
 
 	labgob.Register(Op{})
 	// Your code here.
-	fmt.Printf("\033[1;31mServer %v: initialized\033[0m\n", sm.me)
-	// fmt.Printf("SM Server %v: initialized\n", sm.me)
+	// fmt.Printf("\033[1;31mServer %v: initialized\033[0m\n", sm.me)
+	fmt.Printf("SM Server %v: initialized\n", sm.me)
 	sm.conds = []*cond{newCond()}
 	sm.configs = make([]Config, 1)
 	sm.configs[0].Groups = map[int][]string{}
