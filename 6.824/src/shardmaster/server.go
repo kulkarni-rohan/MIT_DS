@@ -1,14 +1,14 @@
 package shardmaster
 
-
-import "../raft"
-import "../labrpc"
-import "sync"
-import "../labgob"
 import (
-	"fmt"
 	"bytes"
 	"encoding/json"
+	"fmt"
+	"sync"
+
+	"../labgob"
+	"../labrpc"
+	"../raft"
 )
 
 type cond struct {
@@ -16,18 +16,12 @@ type cond struct {
 	cond *sync.Cond
 }
 
-func newCond() *cond {
-	c := cond{}
-	c.cond = sync.NewCond(&c)
-	return &c
-}
-
 type ck struct {
-	id int64
-	ver int64
+	id      int64
+	ver     int64
 	records map[int64]interface{}
 	// records []interface{}
-	mu	sync.Mutex
+	mu sync.Mutex
 }
 
 type ShardMaster struct {
@@ -37,22 +31,22 @@ type ShardMaster struct {
 	applyCh chan raft.ApplyMsg
 
 	// Your data here.
-	lastcommit	int // last commit index
-	conds	[]*cond // condition variables
-	cks		[]ck	// clerks
-	ckId2Idx	map[int64]int // clerk Id to Index in clerks array
-	cksMu	sync.Mutex // mutex for clerks
-	persister	*raft.Persister
+	lastcommit   int           // last commit index
+	conds        []*cond       // condition variables
+	cks          []ck          // clerks
+	ckId2Idx     map[int64]int // clerk Id to Index in clerks array
+	cksMu        sync.Mutex    // mutex for clerks
+	persister    *raft.Persister
 	maxraftstate int
 
-	configs []Config // indexed by config num
+	configs   []Config // indexed by config num
+	configVer int
 }
-
 
 type Op struct {
 	// Your data here.
-	Id	int64
-	Ver int64
+	Id   int64
+	Ver  int64
 	Type string
 	// Join
 	Servers map[int][]string
@@ -63,6 +57,12 @@ type Op struct {
 	GID   int
 	// Query
 	Num int
+}
+
+func newCond() *cond {
+	c := cond{}
+	c.cond = sync.NewCond(&c)
+	return &c
 }
 
 // extend condition variable to be at least as long as the client number
@@ -93,7 +93,7 @@ func (sm *ShardMaster) updateCkRecords(id int64, ver int64, reply interface{}) {
 	idx := sm.ckId2Idx[id]
 	ck := &sm.cks[idx]
 	// fmt.Printf("SM Server %v: id: %v, ver: %v, ck.ver: %v\n", sm.me, ck.id, ver, ck.ver)
-	if ver != ck.ver + 1 {
+	if ver != ck.ver+1 {
 		return
 		// panic("sm.updateCkRecords: not continuous")
 	}
@@ -120,7 +120,7 @@ func (sm *ShardMaster) checkContinuity(id int64, ver int64) bool {
 		return true
 	}
 	ck := &sm.cks[idx]
-	res := ver <= ck.ver + 1
+	res := ver <= ck.ver+1
 	return res
 }
 
@@ -148,10 +148,9 @@ func (sm *ShardMaster) submit(cmd Op) int {
 	if idx <= lastcommit {
 		return 0
 		// panic("sm.submit: outdated commitindex")
-	} 
+	}
 	return idx
 }
-
 
 func (sm *ShardMaster) Join(args *JoinArgs, reply *JoinReply) {
 	// Your code here.
@@ -219,7 +218,9 @@ func (sm *ShardMaster) Query(args *QueryArgs, reply *QueryReply) {
 	}
 	oldReply, isSubmitted := sm.checkSubmitted(args.Id, args.Ver)
 	if oldReply == nil {
-		nConfig := len(sm.configs)
+		sm.mu.Lock()
+		nConfig := sm.configVer
+		sm.mu.Unlock()
 		if args.Num >= nConfig || args.Num < 0 {
 			reply.Config = sm.configs[nConfig-1]
 		} else {
@@ -243,7 +244,9 @@ func (sm *ShardMaster) Query(args *QueryArgs, reply *QueryReply) {
 	sm.wait(idx)
 	oldReply, isSubmitted = sm.checkSubmitted(args.Id, args.Ver)
 	if oldReply == nil {
-		nConfig := len(sm.configs)
+		sm.mu.Lock()
+		nConfig := sm.configVer
+		sm.mu.Unlock()
 		if args.Num >= nConfig || args.Num < 0 {
 			reply.Config = sm.configs[nConfig-1]
 		} else {
@@ -263,7 +266,6 @@ func (sm *ShardMaster) Query(args *QueryArgs, reply *QueryReply) {
 		return
 	}
 }
-
 
 //
 // the tester calls Kill() when a ShardMaster instance won't
@@ -286,12 +288,13 @@ func inArray(e int, b []int) bool {
 }
 
 func (sm *ShardMaster) lastConfig() Config {
+	// DEEPCOPY...
 	nConfig := len(sm.configs)
-	lastConfig := Config{}
-	lastConfig.Groups = make(map[int][]string)
-    byt, _ := json.Marshal(sm.configs[nConfig-1])
-	json.Unmarshal(byt, &lastConfig)
-	return lastConfig
+	src := sm.configs[nConfig-1]
+	dst := Config{}
+	byt, _ := json.Marshal(src)
+	json.Unmarshal(byt, &dst)
+	return dst
 }
 
 func (sm *ShardMaster) execute_join(args JoinArgs) JoinReply {
@@ -318,6 +321,9 @@ func (sm *ShardMaster) execute_join(args JoinArgs) JoinReply {
 		MIN := NShards / nGroups
 		MAX := (NShards + nGroups - 1) / nGroups
 		GID2SHARDS := make(map[int][]int)
+		for GID, _ := range lastConfig.Groups {
+			GID2SHARDS[GID] = []int{}
+		}
 		for i := 0; i < NShards; i++ {
 			GID := lastConfig.Shards[i]
 			GID2SHARDS[GID] = append(GID2SHARDS[GID], i)
@@ -330,7 +336,7 @@ func (sm *ShardMaster) execute_join(args JoinArgs) JoinReply {
 					MAX2 = 0
 				}
 				i := 0
-				for ; len(shards) - i > MAX2 && nAdded < MIN; i,nAdded = i+1,nAdded+1 {
+				for ; len(shards)-i > MAX2 && nAdded < MIN; i, nAdded = i+1, nAdded+1 {
 					lastConfig.Shards[shards[i]] = GID
 				}
 				GID2SHARDS[GID2] = shards[i:]
@@ -347,11 +353,24 @@ func (sm *ShardMaster) execute_join(args JoinArgs) JoinReply {
 				}
 			}
 		}
-		// fmt.Printf(
-		// 	"%v: %v, MIN %v, MAX %v, %v %v %v\n", 
-		// 	sm.me, lastConfig, MIN, MAX, nToAdd, nOldGroups, lastConfig.Groups,
-		// )
+		for GID, shards := range GID2SHARDS {
+			for GID2, shards2 := range GID2SHARDS {
+				if GID != GID2 && GID != 0 && GID2 != 0 {
+					if len(shards) > MAX && len(shards2) < MAX {
+						lastConfig.Shards[shards[0]] = GID2
+						shards2 = append(shards2, shards[0])
+						GID2SHARDS[GID] = shards[1:]
+						GID2SHARDS[GID2] = shards2
+					}
+				}
+			}
+		}
+		fmt.Printf(
+			"%v: %v, MIN %v, MAX %v, %v %v\n", 
+			sm.me, lastConfig, MIN, MAX, nToAdd, nOldGroups, 
+		)
 		sm.configs = append(sm.configs, lastConfig)
+		sm.configVer++
 	}
 	return JoinReply{}
 }
@@ -382,7 +401,7 @@ func (sm *ShardMaster) execute_leave(args LeaveArgs) LeaveReply {
 	nToArrange := len(toArrange)
 	nToDel := len(toDel)
 	// the final # of shards per group owns must lie between MIN and MAX
-	if nToDel > 0 && nToArrange > 0{
+	if nToDel > 0 {
 		lastConfig.Num++
 		nGroups := nOldGroups - nToDel
 		if nGroups <= 0 {
@@ -399,7 +418,7 @@ func (sm *ShardMaster) execute_leave(args LeaveArgs) LeaveReply {
 		i := 0
 		for GID2, shards_cnt := range GID2SHARDS_CNT {
 			for ; shards_cnt < MIN; i, shards_cnt = i+1, shards_cnt+1 {
-				lastConfig.Shards[toArrange[i]] = GID2			
+				lastConfig.Shards[toArrange[i]] = GID2
 			}
 			GID2SHARDS_CNT[GID2] = shards_cnt
 		}
@@ -411,6 +430,7 @@ func (sm *ShardMaster) execute_leave(args LeaveArgs) LeaveReply {
 			GID2SHARDS_CNT[GID2] = shards_cnt
 		}
 		sm.configs = append(sm.configs, lastConfig)
+		sm.configVer++
 		fmt.Printf("SM Server %v: config %v after LEAVE %v\n", sm.me, lastConfig, args)
 	}
 	return LeaveReply{}
@@ -428,6 +448,7 @@ func (sm *ShardMaster) execute_move(args MoveArgs) MoveReply {
 
 // execute operation
 func (sm *ShardMaster) execute(op Op) {
+	// fmt.Printf("SM Server %v: execute %v\n", sm.me, op)
 	idx := sm.ckId2Idx[op.Id]
 	ck := &sm.cks[idx]
 	ck.mu.Lock()
@@ -437,7 +458,7 @@ func (sm *ShardMaster) execute(op Op) {
 		return
 	}
 	if op.Type == JOIN {
-		args := JoinArgs{op.Servers,-1,-1}
+		args := JoinArgs{op.Servers, -1, -1}
 		reply := sm.execute_join(args)
 		sm.updateCkRecords(op.Id, op.Ver, reply)
 	} else if op.Type == LEAVE {
@@ -478,7 +499,7 @@ func (sm *ShardMaster) msgHandler(applyCh chan raft.ApplyMsg) {
 		} else if idx <= lastcommit {
 			// pass
 			fmt.Printf(
-				"SM Server %v: ignored ApplyMsg idx: %v, lastcommit: %v\n", 
+				"SM Server %v: ignored ApplyMsg idx: %v, lastcommit: %v\n",
 				sm.me, idx, lastcommit,
 			)
 			sm.snapshot(false)
@@ -578,6 +599,7 @@ func StartServer(servers []*labrpc.ClientEnd, me int, persister *raft.Persister)
 	sm.conds = []*cond{newCond()}
 	sm.configs = make([]Config, 1)
 	sm.configs[0].Groups = map[int][]string{}
+	sm.configVer = 0
 	sm.ckId2Idx = make(map[int64]int)
 	sm.applyCh = make(chan raft.ApplyMsg)
 	sm.recover()
