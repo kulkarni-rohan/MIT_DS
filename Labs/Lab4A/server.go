@@ -40,7 +40,6 @@ type ShardMaster struct {
 	maxraftstate int
 
 	configs   []Config // indexed by config num
-	configVer int
 }
 
 type Op struct {
@@ -219,7 +218,7 @@ func (sm *ShardMaster) Query(args *QueryArgs, reply *QueryReply) {
 	oldReply, isSubmitted := sm.checkSubmitted(args.Id, args.Ver)
 	if oldReply == nil {
 		sm.mu.Lock()
-		nConfig := sm.configVer
+		nConfig := len(sm.configs)
 		sm.mu.Unlock()
 		if args.Num >= nConfig || args.Num < 0 {
 			reply.Config = sm.configs[nConfig-1]
@@ -245,7 +244,7 @@ func (sm *ShardMaster) Query(args *QueryArgs, reply *QueryReply) {
 	oldReply, isSubmitted = sm.checkSubmitted(args.Id, args.Ver)
 	if oldReply == nil {
 		sm.mu.Lock()
-		nConfig := sm.configVer
+		nConfig := len(sm.configs)
 		sm.mu.Unlock()
 		if args.Num >= nConfig || args.Num < 0 {
 			reply.Config = sm.configs[nConfig-1]
@@ -370,7 +369,6 @@ func (sm *ShardMaster) execute_join(args JoinArgs) JoinReply {
 			sm.me, lastConfig, MIN, MAX, nToAdd, nOldGroups, 
 		)
 		sm.configs = append(sm.configs, lastConfig)
-		sm.configVer++
 	}
 	return JoinReply{}
 }
@@ -430,7 +428,6 @@ func (sm *ShardMaster) execute_leave(args LeaveArgs) LeaveReply {
 			GID2SHARDS_CNT[GID2] = shards_cnt
 		}
 		sm.configs = append(sm.configs, lastConfig)
-		sm.configVer++
 		fmt.Printf("SM Server %v: config %v after LEAVE %v\n", sm.me, lastConfig, args)
 	}
 	return LeaveReply{}
@@ -599,7 +596,6 @@ func StartServer(servers []*labrpc.ClientEnd, me int, persister *raft.Persister)
 	sm.conds = []*cond{newCond()}
 	sm.configs = make([]Config, 1)
 	sm.configs[0].Groups = map[int][]string{}
-	sm.configVer = 0
 	sm.ckId2Idx = make(map[int64]int)
 	sm.applyCh = make(chan raft.ApplyMsg)
 	sm.recover()
