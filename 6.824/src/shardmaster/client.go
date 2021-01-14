@@ -20,6 +20,7 @@ type Clerk struct {
 	id		int64
 	ver		int64
 	isLeader	[]bool
+	readOnly bool
 }
 
 func nrand() int64 {
@@ -31,8 +32,14 @@ func nrand() int64 {
 
 func MakeClerk(servers []*labrpc.ClientEnd) *Clerk {
 	ck := new(Clerk)
-	ck.servers = servers
 	// Your code here.
+	nServer := len(servers)
+	if nServer > 1 && servers[nServer-1] == servers[nServer-2] {
+		ck.readOnly = true
+		ck.servers = servers[:nServer-1]
+	} else {
+		ck.servers = servers
+	}
 	ck.id = nrand()
 	ck.ver = 0
 	ck.isLeader = make([]bool, len(ck.servers))
@@ -60,7 +67,7 @@ func (ck *Clerk) newVer() int64 {
 
 func (ck *Clerk) Query(num int) Config {
 	// Your code here.
-	args := QueryArgs{num, ck.id, ck.newVer()}
+	args := QueryArgs{num, ck.id, ck.newVer(), ck.readOnly}
 	for {
 		ok := false
 		res := Config{}
@@ -72,11 +79,11 @@ func (ck *Clerk) Query(num int) Config {
 				srv := ck.servers[i]
 				reply := QueryReply{}
 				okk := srv.Call("ShardMaster.Query", &args, &reply)
-				if okk {
-					fmt.Printf("Query -> %v args: %v, reply: %v\n", i, args, reply)
-				} else {
-					fmt.Printf("Query -> %v network failure\n", i)
-				}
+				// if okk {
+				// 	fmt.Printf("Query -> %v args: %v, reply: %v\n", i, args, reply)
+				// } else {
+				// 	fmt.Printf("Query -> %v network failure\n", i)
+				// }
 				ck.mu.Lock()
 				defer ck.mu.Unlock()
 				if okk && reply.Err == "" && !reply.WrongLeader {

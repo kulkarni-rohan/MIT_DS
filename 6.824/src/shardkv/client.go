@@ -13,6 +13,9 @@ import "crypto/rand"
 import "math/big"
 import "../shardmaster"
 import "time"
+import "sync"
+import "fmt"
+import "container/heap"
 
 //
 // which shard is a key in?
@@ -40,6 +43,11 @@ type Clerk struct {
 	config   shardmaster.Config
 	make_end func(string) *labrpc.ClientEnd
 	// You will have to modify this struct.
+	mu		sync.Mutex
+	id		int64
+	ver		map[int]*IntHeap
+	// ver		[shardmaster.NShards]int64
+	isLeader	[]bool
 }
 
 //
@@ -56,7 +64,36 @@ func MakeClerk(masters []*labrpc.ClientEnd, make_end func(string) *labrpc.Client
 	ck.sm = shardmaster.MakeClerk(masters)
 	ck.make_end = make_end
 	// You'll have to add code here.
+	ck.id = nrand()
+	ck.ver = make(map[int]*IntHeap)
+	fmt.Printf("Clerk %v: initialized\n", ck.id)
 	return ck
+}
+
+// assign a new version number
+// if have previously failed version, use it, otherwise use new version
+func (ck *Clerk) newVer(shard int) int64 {
+	ck.mu.Lock()
+	defer ck.mu.Unlock()
+	if ck.ver[shard] == nil {
+		ck.ver[shard] = &IntHeap{0}
+	}
+	res := heap.Pop(ck.ver[shard]).(int64) + 1
+	if ck.ver[shard].Len() == 0 {
+		heap.Push(ck.ver[shard], res)
+	}
+	// for i := 0; i < shardmaster.NShards; i++ {
+	// 	fmt.Printf("%v %v\n", i, ck.ver[i])
+	// }
+	return res
+}
+
+// put the failed version back in heap
+func (ck *Clerk) releaseVer(shard int, ver int64) {
+	ck.mu.Lock()
+	defer ck.mu.Unlock()
+	fmt.Printf("--------------------------------------\n")
+	heap.Push(ck.ver[shard], ver-1)
 }
 
 //
@@ -66,33 +103,63 @@ func MakeClerk(masters []*labrpc.ClientEnd, make_end func(string) *labrpc.Client
 // You will have to modify this function.
 //
 func (ck *Clerk) Get(key string) string {
-	args := GetArgs{}
-	args.Key = key
-
+	shard := key2shard(key)
 	for {
-		shard := key2shard(key)
 		gid := ck.config.Shards[shard]
-		if servers, ok := ck.config.Groups[gid]; ok {
-			// try each server for the shard.
-			for si := 0; si < len(servers); si++ {
-				srv := ck.make_end(servers[si])
-				var reply GetReply
-				ok := srv.Call("ShardKV.Get", &args, &reply)
-				if ok && (reply.Err == OK || reply.Err == ErrNoKey) {
-					return reply.Value
-				}
-				if ok && (reply.Err == ErrWrongGroup) {
-					break
-				}
-				// ... not ok, or ErrWrongLeader
-			}
+		ver := ck.newVer(shard)
+		args := GetArgs{key, ck.id, ver}
+		servers, ok := []string{}, false
+		// if not found in existing config
+		if servers, ok = ck.config.Groups[gid]; !ok {
+			time.Sleep(CONFIG404TIMEOUT * time.Millisecond)
+			ck.config = ck.sm.Query(-1)
+			ck.releaseVer(shard, ver)
+			continue
 		}
-		time.Sleep(100 * time.Millisecond)
-		// ask master for the latest configuration.
-		ck.config = ck.sm.Query(-1)
+		for {
+			ok := false
+			wrongGroup := false
+			res := ""
+			for i, _ := range servers {
+				go func(i int) {
+					server := ck.make_end(servers[i])
+					reply := GetReply{}
+					okk := server.Call("ShardKV.Get", &args, &reply)
+					if okk {
+						fmt.Printf("get -> %v-%v args: %v, reply: %v, shard: %v\n", gid, i, args, reply, shard)
+					} else {
+						fmt.Printf("get -> %v-%v network failure\n", gid, i)
+					}
+					ck.mu.Lock()
+					defer ck.mu.Unlock()
+					if okk && reply.Err == "" {
+						res = reply.Value
+						ok = true
+					} else if reply.Err == ErrNoKey {
+						res = ""
+						ok = true
+					} else if reply.Err == ErrWrongLeader {
+						// ck.isLeader[i] = false
+					} else if reply.Err == ErrWrongGroup {
+						wrongGroup = true
+					}
+				}(i)
+			}
+			time.Sleep(RPCTIMEOUT* time.Millisecond)
+			ck.mu.Lock()
+			if ok {
+				ck.mu.Unlock()
+				return res
+			} else if wrongGroup {
+				time.Sleep(WRONGGROUPWAIT * time.Millisecond)
+				ck.config = ck.sm.Query(-1)
+				ck.mu.Unlock()
+				break
+			}
+			ck.mu.Unlock()
+		}
+		ck.releaseVer(shard, ver)
 	}
-
-	return ""
 }
 
 //
@@ -100,32 +167,57 @@ func (ck *Clerk) Get(key string) string {
 // You will have to modify this function.
 //
 func (ck *Clerk) PutAppend(key string, value string, op string) {
-	args := PutAppendArgs{}
-	args.Key = key
-	args.Value = value
-	args.Op = op
-
-
+	shard := key2shard(key)
 	for {
-		shard := key2shard(key)
 		gid := ck.config.Shards[shard]
-		if servers, ok := ck.config.Groups[gid]; ok {
-			for si := 0; si < len(servers); si++ {
-				srv := ck.make_end(servers[si])
-				var reply PutAppendReply
-				ok := srv.Call("ShardKV.PutAppend", &args, &reply)
-				if ok && reply.Err == OK {
-					return
-				}
-				if ok && reply.Err == ErrWrongGroup {
-					break
-				}
-				// ... not ok, or ErrWrongLeader
-			}
+		ver := ck.newVer(shard)
+		args := PutAppendArgs{key, value, op, ck.id, ver}
+		servers, ok := []string{}, false
+		// if not found in existing config
+		if servers, ok = ck.config.Groups[gid]; !ok {
+			time.Sleep(CONFIG404TIMEOUT * time.Millisecond)
+			ck.config = ck.sm.Query(-1)
+			ck.releaseVer(shard, ver)
+			continue
 		}
-		time.Sleep(100 * time.Millisecond)
-		// ask master for the latest configuration.
-		ck.config = ck.sm.Query(-1)
+		for {
+			ok := false
+			wrongGroup := false
+			for i, _ := range servers {
+				go func(i int) {
+					server := ck.make_end(servers[i])
+					reply := GetReply{}
+					okk := server.Call("ShardKV.PutAppend", &args, &reply)
+					if okk {
+						fmt.Printf("PA -> %v-%v args: %v, reply: %v\n", gid, i, args, reply)
+					} else {
+						fmt.Printf("PA -> %v-%v network failure\n", gid, i)
+					}
+					ck.mu.Lock()
+					defer ck.mu.Unlock()
+					if okk && reply.Err == "" {
+						ok = true
+					} else if reply.Err == ErrWrongLeader {
+						// ck.isLeader[i] = false
+					} else if reply.Err == ErrWrongGroup {
+						wrongGroup = true
+					}
+				}(i)
+			}
+			time.Sleep(RPCTIMEOUT* time.Millisecond)
+			ck.mu.Lock()
+			if ok {
+				ck.mu.Unlock()
+				return
+			} else if wrongGroup {
+				time.Sleep(WRONGGROUPWAIT * time.Millisecond)
+				ck.config = ck.sm.Query(-1)
+				ck.mu.Unlock()
+				break
+			}
+			ck.mu.Unlock()
+		}
+		ck.releaseVer(shard, ver)
 	}
 }
 

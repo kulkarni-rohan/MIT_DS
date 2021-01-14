@@ -211,6 +211,12 @@ func (sm *ShardMaster) Move(args *MoveArgs, reply *MoveReply) {
 
 func (sm *ShardMaster) Query(args *QueryArgs, reply *QueryReply) {
 	// Your code here.
+	if args.RO {
+		sm.mu.Lock()
+		defer sm.mu.Unlock()
+		reply.Config = sm.lastConfig() 
+		return
+	}
 	if !sm.checkContinuity(args.Id, args.Ver) {
 		reply.Err = ErrNoContinuity
 		return
@@ -231,7 +237,7 @@ func (sm *ShardMaster) Query(args *QueryArgs, reply *QueryReply) {
 		reply.Config = oldReply.(QueryReply).Config
 		reply.Err = oldReply.(QueryReply).Err
 		reply.WrongLeader = oldReply.(QueryReply).WrongLeader
-		fmt.Printf("SM Server %v: return submitted: %v %v\n", sm.me, args, reply)
+		// fmt.Printf("SM Server %v: return submitted: %v %v\n", sm.me, args, reply)
 		return
 	}
 	cmd := Op{args.Id, args.Ver, QUERY, nil, nil, -1, -1, args.Num}
@@ -257,7 +263,7 @@ func (sm *ShardMaster) Query(args *QueryArgs, reply *QueryReply) {
 		reply.Config = oldReply.(QueryReply).Config
 		reply.Err = oldReply.(QueryReply).Err
 		reply.WrongLeader = oldReply.(QueryReply).WrongLeader
-		fmt.Printf("SM Server %v: return submitted: %v %v\n", sm.me, args, reply)
+		// fmt.Printf("SM Server %v: return submitted: %v %v\n", sm.me, args, reply)
 		return
 	} else {
 		// panic("sm.Get: submitted but cannot find")
@@ -467,7 +473,7 @@ func (sm *ShardMaster) execute(op Op) {
 		reply := sm.execute_move(args)
 		sm.updateCkRecords(op.Id, op.Ver, reply)
 	} else if op.Type == QUERY {
-		args := QueryArgs{op.Num, -1, -1}
+		args := QueryArgs{op.Num, -1, -1, false}
 		reply := QueryReply{}
 		nConfig := len(sm.configs)
 		if args.Num >= nConfig || args.Num < 0 {
@@ -510,11 +516,11 @@ func (sm *ShardMaster) msgHandler(applyCh chan raft.ApplyMsg) {
 				sm.createRecord(op.Id, 0)
 			}
 			sm.cksMu.Unlock()
-			fmt.Printf(
-				// "%v: committed %v at index %v\n",
-				"\033[1;35m%v: committed %v at index %v\033[0m\n",
-				sm.me, m.Command, m.CommandIndex,
-			)
+			// fmt.Printf(
+			// 	// "%v: committed %v at index %v\n",
+			// 	"\033[1;35m%v: committed %v at index %v\033[0m\n",
+			// 	sm.me, m.Command, m.CommandIndex,
+			// )
 			sm.mu.Lock()
 			sm.execute(op)
 			sm.lastcommit++
@@ -529,7 +535,7 @@ func (sm *ShardMaster) msgHandler(applyCh chan raft.ApplyMsg) {
 // must be called with sm.mu held
 func (sm *ShardMaster) snapshot(toSnapshot bool) {
 	if !toSnapshot {
-		sm.rf.DiscardBefore(-1, []byte{})
+		sm.rf.DiscardBefore(-1, []byte{}, true)
 		return
 	}
 	// fmt.Printf("SM Server %v: Snapshotting...\n", sm.me)
@@ -545,7 +551,7 @@ func (sm *ShardMaster) snapshot(toSnapshot bool) {
 		e.Encode(sm.cks[i].ver)
 	}
 	snapshot := w.Bytes()
-	sm.rf.DiscardBefore(sm.lastcommit+1, snapshot)
+	sm.rf.DiscardBefore(sm.lastcommit+1, snapshot, true)
 }
 
 // recover from snapshot

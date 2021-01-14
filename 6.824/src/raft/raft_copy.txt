@@ -59,8 +59,6 @@ type Raft struct {
 	// Look at the paper's Figure 2 for a description of what
 	// state a Raft server must maintain.
 
-	// 4B - only for debug
-	gid		int
 }
 
 type Data struct {
@@ -116,7 +114,7 @@ func (rf *Raft) persist() {
 func (rf *Raft) readPersist(data []byte) {
 	// Your code here (2C).
 	// if no error Decode returns error
-	fmt.Printf("%v-%v: readPersist\n", rf.gid, rf.me)
+	fmt.Printf("%v: readPersist\n", rf.me)
 	if data == nil || len(data) < 1 {
 		rf.votedFor = -1
 		rf.term = 0
@@ -142,16 +140,16 @@ func (rf *Raft) readPersist(data []byte) {
 
 // discard logs before idx, after this operation, idx becomes index 1
 // cidx -> raft index; tidx -> server index
-func (rf *Raft) DiscardBefore(tidx int, snapshot []byte, waited bool) {
+func (rf *Raft) DiscardBefore(tidx int, snapshot []byte) {
 	// 3B
 	if tidx == -1 {
 		rf.disgardCh <- false
 		return
 	}
-	fmt.Printf("%v-%v: DiscardBefore %v\n", rf.gid, rf.me, tidx)
+	fmt.Printf("%v: DiscardBefore %v\n", rf.me, tidx)
 	cidx := tidx - rf.offset
 	if cidx < 1 {
-		fmt.Printf("%v-%v: cidx < 1\n", rf.gid, rf.me)
+		fmt.Printf("%v: cidx < 1\n", rf.me)
 		return
 	}
 	if cidx <= len(rf.log) {
@@ -175,9 +173,7 @@ func (rf *Raft) DiscardBefore(tidx int, snapshot []byte, waited bool) {
 	state := w.Bytes()
 
 	rf.persister.SaveStateAndSnapshot(state, snapshot)
-	if waited {
-		rf.disgardCh <- true
-	}
+	rf.disgardCh <- true
 }
 
 func (rf *Raft) StateSize() int {
@@ -193,8 +189,8 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 		reply.Success = false
 		reply.Term = rf.term
 		fmt.Printf(
-			"%v-%v: AppendEntries from %v failed: term{%v %v}, {%v %v}, nEntry: %v\n",
-			rf.gid, rf.me, args.LeaderID,
+			"%v: AppendEntries from %v failed: term{%v %v}, {%v %v}, nEntry: %v\n",
+			rf.me, args.LeaderID,
 			args.Term, rf.term,
 			args.PrevLogIndex, args.PrevLogTerm,
 			len(args.Entries),
@@ -213,11 +209,11 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 	cLog := len(rf.log) // current # of Log 
 	tLog := len(rf.log) + rf.offset // total # of Log 
 	if !(len(args.Entries) == 0 && rf.commitIndex == args.LeaderCommit &&
-	args.PrevLogTerm == rf.log[cLog-1].Term && args.PrevLogIndex == tLog-1) && rf.gid != 0 {
+	args.PrevLogTerm == rf.log[cLog-1].Term && args.PrevLogIndex == tLog-1) {
 		fmt.Printf(
-			"%v-%v: AppendEntries from %v in term %v: "+
+			"%v: AppendEntries from %v in term %v: "+
 				"pidx: {%v %v}, pterm: {%v %v}, commit: {%v %v}, nEntry: %v\n",
-			rf.gid, rf.me, args.LeaderID, args.Term,
+			rf.me, args.LeaderID, args.Term,
 			args.PrevLogIndex, tLog-1,
 			args.PrevLogTerm, rf.log[cLog-1].Term,
 			args.LeaderCommit, rf.commitIndex, 
@@ -265,8 +261,8 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
 	fmt.Printf(
-		"%v-%v: RequestVote from %v: {%v %v}, term: {%v %v}\n",
-		rf.gid, rf.me, args.CandidateID,
+		"%v: RequestVote from %v: {%v %v}, term: {%v %v}\n",
+		rf.me, args.CandidateID,
 		args.LastLogIndex, args.LastLogTerm,
 		args.Term, rf.term,
 	)
@@ -308,7 +304,7 @@ func (rf *Raft) InstallSnapshot(args *InstallSnapshotArgs, reply *InstallSnapsho
 		reply.Term = args.Term
 		return
 	}
-	fmt.Printf("%v-%v: InstallSnapshot from %v\n", rf.gid, rf.me, args.LeaderID)
+	fmt.Printf("%v: InstallSnapshot from %v\n", rf.me, args.LeaderID)
 	rf.persister.SaveStateAndSnapshot(args.State, args.Snapshot)
 	rf.readPersist(rf.persister.ReadRaftState())
 	rf.applyCh <- ApplyMsg{false, nil, 0}
@@ -353,8 +349,8 @@ func (rf *Raft) election() {
 				if cd.istimeout && rf.launch_election() {
 					cd.istimeout = false
 					rf.mu.Lock()
-					// fmt.Printf("%v-%v: Became Leader in term %v\n",rf.me, rf.term)
-					fmt.Printf("\033[0;33m%v-%v: Became Leader in term %v\033[0m\n", rf.gid, rf.me, rf.term)
+					// fmt.Printf("%v: Became Leader in term %v\n",rf.me, rf.term)
+					fmt.Printf("\033[0;33m%v: Became Leader in term %v\033[0m\n", rf.me, rf.term)
 					rf.state = LEADER
 					rf.votedFor = -1
 					rf.persist()
@@ -384,7 +380,7 @@ func (rf *Raft) election() {
 // finally, if it fails, it set itself to the most updated term
 func (rf *Raft) heartbeats() bool {
 	rf.mu.Lock()
-	// fmt.Printf("%v-%v: heartbeats in term %v\n",rf.me, rf.term)
+	// fmt.Printf("%v: heartbeats in term %v\n",rf.me, rf.term)
 	defer rf.mu.Unlock()
 	cLog := len(rf.log)
 	tLog := len(rf.log) + rf.offset
@@ -431,7 +427,7 @@ func (rf *Raft) launch_election() bool {
 	rf.term++
 	rf.votedFor = rf.me
 	rf.persist()
-	// fmt.Printf("%v-%v: launched election in term %v\n",rf.me, rf.term)
+	// fmt.Printf("%v: launched election in term %v\n",rf.me, rf.term)
 	vote := Data{1, sync.Mutex{}}
 	term := Data{rf.term, sync.Mutex{}}
 	cLog := len(rf.log)
@@ -534,9 +530,9 @@ func (rf *Raft) agreement(idx int, command interface{}) bool {
 	entry := Entry{rf.term, command}
 	tLog := len(rf.log) + rf.offset
 	fmt.Printf(
-		// "%v-%v: agreement[%v] %v in term %v\n", 
-		"\033[1;33m%v-%v: agreement[%v] %v in term %v\033[0m\n", 
-		rf.gid, rf.me, idx, command, rf.term,
+		// "%v: agreement[%v] %v in term %v\n", 
+		"\033[1;33m%v: agreement[%v] %v in term %v\033[0m\n", 
+		rf.me, idx, command, rf.term,
 	)
 	if idx == tLog {
 		rf.log = append(rf.log, entry)
@@ -646,14 +642,13 @@ func randgen() int {
 func Make(peers []*labrpc.ClientEnd, me int,
 	persister *Persister, applyCh chan ApplyMsg) *Raft {
 	rf := &Raft{}
-	rf.gid = me >> 5
-	rf.me = 0x1F & me
 	rf.peers = peers
 	rf.persister = persister
+	rf.me = me
 
 	// Your initialization code here (2A, 2B, 2C).
-	// fmt.Printf("%v-%v: initialized\n", rf.me)
-	fmt.Printf("\033[1;31m%v-%v: initialized\033[0m\n", rf.gid, rf.me)
+	// fmt.Printf("%v: initialized\n", rf.me)
+	fmt.Printf("\033[1;31m%v: initialized\033[0m\n", rf.me)
 	rf.cd = CountDown{0, false, sync.Mutex{}, sync.NewCond(&sync.Mutex{})}
 	rf.applyCh = applyCh
 	rf.disgardCh = make(chan bool)

@@ -328,7 +328,7 @@ func (kv *KVServer) msgHandler(applyCh chan raft.ApplyMsg) {
 // must be called with kv.mu held
 func (kv *KVServer) snapshot(toSnapshot bool) {
 	if !toSnapshot {
-		kv.rf.DiscardBefore(-1, []byte{})
+		kv.rf.DiscardBefore(-1, []byte{}, true)
 		return
 	}
 	fmt.Printf("Server %v: Snapshotting...\n", kv.me)
@@ -348,7 +348,7 @@ func (kv *KVServer) snapshot(toSnapshot bool) {
 		e.Encode(kv.cks[i].ver)
 	}
 	snapshot := w.Bytes()
-	kv.rf.DiscardBefore(kv.lastcommit+1, snapshot)
+	kv.rf.DiscardBefore(kv.lastcommit+1, snapshot, true)
 }
 
 // recover from snapshot

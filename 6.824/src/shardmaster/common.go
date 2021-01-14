@@ -37,7 +37,7 @@ const (
 
 // interval between each round of Get/PutAppend in ms
 const (
-	RPCTIMEOUT = 100
+	RPCTIMEOUT = 20
 )
 
 const (
@@ -91,6 +91,8 @@ type QueryArgs struct {
 	// 4A
 	Id    int64
 	Ver	  int64
+	// 4B - ReadOnly
+	RO	  bool
 }
 
 type QueryReply struct {
